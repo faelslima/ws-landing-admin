@@ -1,0 +1,7 @@
+.idea
+.claude
+.logs
+.target
+*.log
+*.sh
+*.sql
