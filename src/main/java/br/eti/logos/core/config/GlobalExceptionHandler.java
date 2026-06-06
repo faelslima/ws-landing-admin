@@ -22,6 +22,17 @@ public class GlobalExceptionHandler {
     private final ObjectMapper objectMapper;
     private final br.eti.logos.service.i18n.MessageTranslationService translationService;
 
+    @ExceptionHandler(SecurityException.class)
+    public ResponseEntity<Map<String, Object>> handleSecurity(SecurityException e) {
+        log.warn("Acesso negado: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+                "status", 401,
+                "error", "Unauthorized",
+                "message", "Acesso não autorizado",
+                "timestamp", OffsetDateTime.now().toString()
+        ));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
@@ -58,7 +69,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(FeignException.class)
     public ResponseEntity<Map<String, Object>> handleFeignException(FeignException e) {
-        log.error("Erro ao comunicar com PagBank: status={}, body={}", e.status(), e.contentUTF8());
+        log.error("Erro ao comunicar com PagBank: status={}", e.status());
 
         String userMessage = "Erro ao comunicar com PagBank";
         HttpStatus status = HttpStatus.INTERNAL_SERVER_ERROR;

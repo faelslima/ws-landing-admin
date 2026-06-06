@@ -49,6 +49,15 @@ public interface PagBankService {
     // Invoices (novo método para AdminPagSeguroApi)
     InvoicesListDto listarFaturasAdmin(String subscriptionId);
 
+    // Customers
+    CustomersListDto listarClientes(Integer offset, Integer limit);
+
+    CustomersListDto.Customer buscarCliente(String customerId);
+
+    CustomersListDto.Customer atualizarCliente(String customerId, UpdateCustomerRequestDto request);
+
+    void atualizarBillingInfo(String customerId, java.util.List<UpdateBillingInfoRequestDto> billingInfo);
+
     void retentarFatura(String invoiceId);
 
     // Orders

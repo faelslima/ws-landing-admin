@@ -153,6 +153,38 @@ public class PagBankServiceImpl implements PagBankService {
     }
 
     // ========================================================================
+    // CUSTOMERS
+    // ========================================================================
+
+    @Override
+    public br.eti.logos.dto.pagbank.CustomersListDto listarClientes(Integer offset, Integer limit) {
+        log.debug("Listando clientes no PagBank - offset: {}, limit: {}", offset, limit);
+        return subscriptionsFeign.listarClientes(bearerToken(), offset, limit);
+    }
+
+    @Override
+    public br.eti.logos.dto.pagbank.CustomersListDto.Customer buscarCliente(String customerId) {
+        log.debug("Buscando cliente {} no PagBank", customerId);
+        return subscriptionsFeign.buscarCliente(bearerToken(), customerId);
+    }
+
+    @Override
+    public br.eti.logos.dto.pagbank.CustomersListDto.Customer atualizarCliente(
+            String customerId,
+            br.eti.logos.dto.pagbank.UpdateCustomerRequestDto request) {
+        log.info("Atualizando dados cadastrais do cliente {} no PagBank", customerId);
+        return subscriptionsFeign.atualizarCliente(bearerToken(), customerId, request);
+    }
+
+    @Override
+    public void atualizarBillingInfo(
+            String customerId,
+            java.util.List<br.eti.logos.dto.pagbank.UpdateBillingInfoRequestDto> billingInfo) {
+        log.info("Atualizando billing_info do cliente {} no PagBank", customerId);
+        subscriptionsFeign.atualizarBillingInfo(bearerToken(), customerId, billingInfo);
+    }
+
+    // ========================================================================
     // ORDERS
     // ========================================================================
 

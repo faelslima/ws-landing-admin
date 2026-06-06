@@ -122,6 +122,30 @@ public interface PagBankSubscriptionsFeign {
             @RequestHeader("Authorization") String token,
             @PathVariable("subscriptionId") String subscriptionId);
 
+    // Customers
+    @GetMapping("/customers")
+    CustomersListDto listarClientes(
+            @RequestHeader("Authorization") String token,
+            @RequestParam(required = false) Integer offset,
+            @RequestParam(required = false) Integer limit);
+
+    @GetMapping("/customers/{customerId}")
+    CustomersListDto.Customer buscarCliente(
+            @RequestHeader("Authorization") String token,
+            @PathVariable("customerId") String customerId);
+
+    @PutMapping("/customers/{customerId}")
+    CustomersListDto.Customer atualizarCliente(
+            @RequestHeader("Authorization") String token,
+            @PathVariable("customerId") String customerId,
+            @RequestBody UpdateCustomerRequestDto request);
+
+    @PutMapping("/customers/{customerId}/billing_info")
+    void atualizarBillingInfo(
+            @RequestHeader("Authorization") String token,
+            @PathVariable("customerId") String customerId,
+            @RequestBody java.util.List<UpdateBillingInfoRequestDto> billingInfo);
+
     @PostMapping("/invoices/{invoiceId}/retry")
     ResponseEntity<Void> retentarFatura(
             @RequestHeader("Authorization") String token,

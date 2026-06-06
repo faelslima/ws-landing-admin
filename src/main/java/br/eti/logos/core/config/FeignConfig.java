@@ -9,6 +9,7 @@ public class FeignConfig {
 
     @Bean
     Logger.Level feignLoggerLevel() {
-        return Logger.Level.FULL;
+        // BASIC: loga método, URL e status. FULL logaria headers (Authorization: Bearer token) — nunca usar.
+        return Logger.Level.BASIC;
     }
 }

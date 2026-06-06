@@ -5,3 +5,7 @@ target
 *.log
 *.sh
 *.sql
+src/main/resources/application-dev.properties
+src/main/resources/application-local.properties
+.env
+.env.local

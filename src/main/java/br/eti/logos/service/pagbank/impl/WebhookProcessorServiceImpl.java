@@ -55,14 +55,16 @@ public class WebhookProcessorServiceImpl implements WebhookProcessorService {
             return;
         }
 
-        // Validate authenticity
+        // Validate authenticity — rejeita se header ausente ou hash divergente
         var authenticityToken = headers.get("x-authenticity-token");
-        if (authenticityToken != null) {
-            var expectedHash = DigestUtils.sha256Hex(pagbankToken + "-" + payload);
-            if (!authenticityToken.equalsIgnoreCase(expectedHash)) {
-                log.warn("Webhook com assinatura inválida");
-                return;
-            }
+        if (authenticityToken == null || authenticityToken.isBlank()) {
+            log.warn("Webhook rejeitado: header x-authenticity-token ausente");
+            throw new SecurityException("Webhook sem assinatura");
+        }
+        var expectedHash = DigestUtils.sha256Hex(pagbankToken + "-" + payload);
+        if (!org.apache.commons.lang3.StringUtils.equalsIgnoreCase(authenticityToken, expectedHash)) {
+            log.warn("Webhook rejeitado: assinatura inválida");
+            throw new SecurityException("Assinatura de webhook inválida");
         }
 
         // Save event record (unique constraint on payloadHash prevents duplicates)
