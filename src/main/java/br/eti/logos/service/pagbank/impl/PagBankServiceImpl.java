@@ -1,8 +1,6 @@
 package br.eti.logos.service.pagbank.impl;
 
-import br.eti.logos.dto.pagbank.PagBankInvoiceDto;
-import br.eti.logos.dto.pagbank.PagBankPlanDto;
-import br.eti.logos.dto.pagbank.PagBankSubscriptionDto;
+import br.eti.logos.dto.pagbank.*;
 import br.eti.logos.feign.PagBankOrdersFeign;
 import br.eti.logos.feign.PagBankSubscriptionsFeign;
 import br.eti.logos.service.pagbank.PagBankService;
@@ -30,6 +28,10 @@ public class PagBankServiceImpl implements PagBankService {
     private String bearerToken() {
         return "Bearer " + pagbankToken;
     }
+
+    // ========================================================================
+    // PLANS
+    // ========================================================================
 
     @Override
     public PagBankPlanDto criarPlano(PagBankPlanDto planDto) {
@@ -82,10 +84,77 @@ public class PagBankServiceImpl implements PagBankService {
     }
 
     @Override
+    public InvoicesListDto listarFaturasAdmin(String subscriptionId) {
+        log.debug("Listando faturas da assinatura {} no PagBank", subscriptionId);
+        return subscriptionsFeign.listarFaturasAdmin(bearerToken(), subscriptionId);
+    }
+
+    @Override
     public void retentarFatura(String invoiceId) {
         log.info("Retentando fatura no PagBank: {}", invoiceId);
         subscriptionsFeign.retentarFatura(bearerToken(), invoiceId);
     }
+
+    // ========================================================================
+    // SUBSCRIPTIONS (novos métodos para AdminPagSeguroApi)
+    // ========================================================================
+
+    @Override
+    public SubscriptionsListDto listarAssinaturas(
+            String searchQuery,
+            String status,
+            String paymentMethodType,
+            String createdAtStart,
+            String createdAtEnd,
+            String planId,
+            String customerId,
+            String referenceId,
+            Integer offset,
+            Integer limit) {
+        log.debug("Listando assinaturas no PagBank - status: {}, payment_method: {}, search: {}, offset: {}, limit: {}",
+                status, paymentMethodType, searchQuery, offset, limit);
+        return subscriptionsFeign.listarAssinaturas(
+                bearerToken(),
+                searchQuery,
+                status,
+                paymentMethodType,
+                createdAtStart,
+                createdAtEnd,
+                planId,
+                customerId,
+                referenceId,
+                offset,
+                limit
+        );
+    }
+
+    @Override
+    public PagBankSubscriptionResponseDto buscarAssinaturaPorId(String subscriptionId) {
+        log.debug("Buscando assinatura {} no PagBank", subscriptionId);
+        return subscriptionsFeign.buscarAssinaturaPorId(bearerToken(), subscriptionId);
+    }
+
+    @Override
+    public PagBankSubscriptionResponseDto suspenderAssinaturaAdmin(String subscriptionId) {
+        log.info("Suspendendo assinatura {} no PagBank", subscriptionId);
+        return subscriptionsFeign.suspenderAssinaturaAdmin(bearerToken(), subscriptionId);
+    }
+
+    @Override
+    public PagBankSubscriptionResponseDto reativarAssinaturaAdmin(String subscriptionId) {
+        log.info("Reativando assinatura {} no PagBank", subscriptionId);
+        return subscriptionsFeign.reativarAssinaturaAdmin(bearerToken(), subscriptionId);
+    }
+
+    @Override
+    public PagBankSubscriptionResponseDto cancelarAssinaturaAdmin(String subscriptionId) {
+        log.warn("Cancelando assinatura {} no PagBank (IRREVERSÍVEL)", subscriptionId);
+        return subscriptionsFeign.cancelarAssinaturaAdmin(bearerToken(), subscriptionId);
+    }
+
+    // ========================================================================
+    // ORDERS
+    // ========================================================================
 
     @Override
     public void cancelarCobranca(String chargeId, Integer valorCentavos) {
@@ -97,5 +166,22 @@ public class PagBankServiceImpl implements PagBankService {
             log.error("Erro ao cancelar cobrança {}: {}", chargeId, e.getMessage());
             throw new RuntimeException("Falha ao cancelar cobrança no PagBank", e);
         }
+    }
+
+    // ========================================================================
+    // WEBHOOKS
+    // ========================================================================
+
+    @Override
+    public PagBankNotificationPreferencesDto consultarPreferenciasNotificacao() {
+        log.info("Consultando preferências de notificação no PagBank");
+        var response = subscriptionsFeign.consultarPreferenciasNotificacao(bearerToken());
+        return response.getBody();
+    }
+
+    @Override
+    public void atualizarPreferenciasNotificacao(PagBankNotificationPreferencesDto preferences) {
+        log.info("Atualizando preferências de notificação no PagBank: {} URLs", preferences.getUrls() != null ? preferences.getUrls().size() : 0);
+        subscriptionsFeign.atualizarPreferenciasNotificacao(bearerToken(), preferences);
     }
 }

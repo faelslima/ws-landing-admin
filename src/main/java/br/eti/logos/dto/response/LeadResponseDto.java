@@ -6,14 +6,14 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.OffsetDateTime;
+import java.io.Serializable;
 import java.util.UUID;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class LeadResponseDto {
+public class LeadResponseDto implements Serializable {
 
     private UUID id;
     private String nomeIgreja;
@@ -27,7 +27,7 @@ public class LeadResponseDto {
     private String observacao;
     private LeadStatusEnum status;
     private String igrejaIdConvertida;
-    private OffsetDateTime dataConversao;
-    private OffsetDateTime criadoEm;
-    private OffsetDateTime atualizadoEm;
+    private String dataConversao;  // ISO 8601
+    private String criadoEm;       // ISO 8601
+    private String atualizadoEm;   // ISO 8601
 }

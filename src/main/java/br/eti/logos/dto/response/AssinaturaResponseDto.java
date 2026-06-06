@@ -6,15 +6,15 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
-import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AssinaturaResponseDto {
+public class AssinaturaResponseDto implements Serializable {
 
     private UUID id;
     private String pagbankSubscriptionId;
@@ -22,7 +22,7 @@ public class AssinaturaResponseDto {
     private String planoNome;
     private BigDecimal valorAnual;
     private AssinaturaStatusEnum status;
-    private OffsetDateTime dataCriacao;
-    private OffsetDateTime dataProximaFatura;
-    private OffsetDateTime dataCancelamento;
+    private String dataCriacao;       // ISO 8601
+    private String dataProximaFatura; // ISO 8601
+    private String dataCancelamento;  // ISO 8601
 }

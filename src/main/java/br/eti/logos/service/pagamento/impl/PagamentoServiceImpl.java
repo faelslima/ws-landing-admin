@@ -1,5 +1,6 @@
 package br.eti.logos.service.pagamento.impl;
 
+import br.eti.logos.core.util.DateTimeUtil;
 import br.eti.logos.dto.request.RefundRequestDto;
 import br.eti.logos.dto.response.PagamentoResponseDto;
 import br.eti.logos.entity.landing.Pagamento;
@@ -133,10 +134,11 @@ public class PagamentoServiceImpl implements PagamentoService {
                 .valorEstornado(p.getValorEstornado())
                 .status(p.getStatus())
                 .formaPagamento(p.getFormaPagamento())
-                .dataPagamento(p.getDataPagamento())
-                .dataVencimento(p.getDataVencimento())
-                .dataCriacao(p.getCriadoEm())
+                .dataPagamento(DateTimeUtil.toIsoString(p.getDataPagamento()))
+                .dataVencimento(DateTimeUtil.toIsoString(p.getDataVencimento()))
+                .dataCriacao(DateTimeUtil.toIsoString(p.getCriadoEm()))
                 .estornavel(estornavel)
+                .motivoRecusa(p.getMotivoRecusa())
                 .build();
     }
 }

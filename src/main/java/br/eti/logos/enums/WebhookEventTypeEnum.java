@@ -1,10 +1,37 @@
 package br.eti.logos.enums;
 
 public enum WebhookEventTypeEnum {
+    // Subscription events
+    SUBSCRIPTION_INITIAL,
     SUBSCRIPTION_CREATED,
+    SUBSCRIPTION_UPDATED,
     SUBSCRIPTION_ACTIVATED,
     SUBSCRIPTION_SUSPENDED,
+    SUBSCRIPTION_RECURRENCE,
+    SUBSCRIPTION_EXPIRED,
     SUBSCRIPTION_CANCELED,
+    SUBSCRIPTION_MIGRATED,
+
+    // Customer events
+    CUSTOMER_CREATED,
+    CUSTOMER_UPDATED,
+    CUSTOMER_BILLING_INFO_UPDATED,
+
+    // Plan events
+    PLAN_CREATED,
+    PLAN_UPDATED,
+    PLAN_ACTIVATED,
+    PLAN_INACTIVATED,
+
+    // Coupon events
+    COUPON_CREATED,
+    COUPON_ACTIVATED,
+    COUPON_INACTIVATED,
+
+    // Refund events
+    REFUND_CREATED,
+
+    // Invoice events (legacy/fallback)
     INVOICE_CREATED,
     INVOICE_PAID,
     INVOICE_OVERDUE,

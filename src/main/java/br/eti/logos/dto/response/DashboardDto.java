@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -12,7 +13,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class DashboardDto {
+public class DashboardDto implements Serializable {
 
     private Long totalIgrejasAtivas;
     private Long totalIgrejasSuspensas;
@@ -34,7 +35,7 @@ public class DashboardDto {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class AlertaUsuarioDto {
+    public static class AlertaUsuarioDto implements Serializable {
         private String nomeIgreja;
         private Integer usuariosAtivos;
         private Integer limiteUsuarios;
@@ -46,7 +47,7 @@ public class DashboardDto {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class ReceitaPorPlanoDto {
+    public static class ReceitaPorPlanoDto implements Serializable {
         private String plano;
         private Long quantidade;
         private BigDecimal receita;
@@ -56,7 +57,7 @@ public class DashboardDto {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class ConversaoMensalDto {
+    public static class ConversaoMensalDto implements Serializable {
         private String mes;
         private Long leads;
         private Long convertidos;

@@ -1,6 +1,6 @@
 .idea
 .claude
-.logs
+logs
 target
 *.log
 *.sh

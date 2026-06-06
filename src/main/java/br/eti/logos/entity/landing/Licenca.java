@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.UuidGenerator;
 
+import java.io.Serializable;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -19,7 +20,7 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Licenca {
+public class Licenca  implements Serializable {
 
     @Id
     @UuidGenerator
@@ -29,7 +30,7 @@ public class Licenca {
     private String igrejaId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "plano_id", nullable = false)
+    @JoinColumn(name = "plano_id", nullable = false, foreignKey = @ForeignKey(name = "fk_licenca_plano_id"))
     private Plano plano;
 
     @Enumerated(EnumType.STRING)

@@ -3,9 +3,11 @@ package br.eti.logos.enums;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
+import java.io.Serializable;
+
 @Getter
 @RequiredArgsConstructor
-public enum PlanoTierEnum {
+public enum PlanoTierEnum implements Serializable {
 
     STARTER("Starter", 50),
     GROWTH("Growth", 200),

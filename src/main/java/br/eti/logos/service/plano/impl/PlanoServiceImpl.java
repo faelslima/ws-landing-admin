@@ -2,12 +2,15 @@ package br.eti.logos.service.plano.impl;
 
 import br.eti.logos.dto.pagbank.PagBankPlanDto;
 import br.eti.logos.dto.request.PlanoCreateRequestDto;
+import br.eti.logos.dto.response.PlanoResponseDto;
 import br.eti.logos.entity.landing.Plano;
 import br.eti.logos.repository.PlanoRepository;
 import br.eti.logos.service.pagbank.PagBankService;
 import br.eti.logos.service.plano.PlanoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,7 +26,26 @@ public class PlanoServiceImpl implements PlanoService {
     private final PagBankService pagBankService;
 
     @Override
+    @Cacheable(value = "planos", key = "'todos'")
+    public List<PlanoResponseDto> listarTodos() {
+        log.debug("Buscando todos os planos no banco (cache miss)");
+        return planoRepository.findAll().stream()
+                .map(this::toDto)
+                .toList();
+    }
+
+    @Override
+    @Cacheable(value = "planos", key = "'ativos'")
+    public List<PlanoResponseDto> listarPlanosAtivos() {
+        log.debug("Buscando planos ativos no banco (cache miss)");
+        return planoRepository.findAllByAtivoTrue().stream()
+                .map(this::toDto)
+                .toList();
+    }
+
+    @Override
     @Transactional
+    @CacheEvict(value = "planos", allEntries = true)
     public Plano criar(PlanoCreateRequestDto request) {
         log.info("Criando plano: {}", request.getNome());
 
@@ -53,6 +75,7 @@ public class PlanoServiceImpl implements PlanoService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "planos", allEntries = true)
     public Plano atualizar(UUID id, PlanoCreateRequestDto request) {
         log.info("Atualizando plano: {}", id);
 
@@ -120,5 +143,19 @@ public class PlanoServiceImpl implements PlanoService {
         planoRepository.save(plano);
 
         log.info("Plano {} sincronizado. PagBank ID: {}", plano.getNome(), response.getId());
+    }
+
+    private PlanoResponseDto toDto(Plano p) {
+        return PlanoResponseDto.builder()
+                .id(p.getId())
+                .nome(p.getNome())
+                .descricao(p.getDescricao())
+                .tier(p.getTier())
+                .limiteUsuarios(p.getLimiteUsuarios())
+                .valorAnualCentavos(p.getValorAnualCentavos())
+                .ativo(p.getAtivo())
+                .pagbankPlanId(p.getPagbankPlanId())
+                .recursos(p.getRecursos())
+                .build();
     }
 }

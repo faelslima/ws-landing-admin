@@ -32,6 +32,12 @@ public class PagBankInvoiceDto {
     @JsonProperty("created_at")
     private String createdAt;
 
+    @JsonProperty("decline_reason")
+    private String declineReason;
+
+    @JsonProperty("payment_response")
+    private PagBankPaymentResponseDto paymentResponse;
+
     @Data
     @Builder
     @NoArgsConstructor
@@ -39,5 +45,15 @@ public class PagBankInvoiceDto {
     public static class PagBankInvoiceAmountDto {
         private Integer value;
         private String currency;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PagBankPaymentResponseDto {
+        private String code;
+        private String message;
+        private String reference;
     }
 }

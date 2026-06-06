@@ -6,14 +6,14 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.OffsetDateTime;
+import java.io.Serializable;
 import java.util.UUID;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class LicencaResponseDto {
+public class LicencaResponseDto implements Serializable {
 
     private UUID id;
     private String igrejaId;
@@ -23,7 +23,7 @@ public class LicencaResponseDto {
     private Integer limiteUsuarios;
     private Integer usuariosAtivos;
     private Integer percentualUso;
-    private OffsetDateTime dataInicio;
-    private OffsetDateTime dataExpiracao;
-    private OffsetDateTime dataProximaCobranca;
+    private String dataInicio;          // ISO 8601
+    private String dataExpiracao;       // ISO 8601
+    private String dataProximaCobranca; // ISO 8601
 }

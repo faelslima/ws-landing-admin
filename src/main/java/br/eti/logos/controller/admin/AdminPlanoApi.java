@@ -3,7 +3,6 @@ package br.eti.logos.controller.admin;
 import br.eti.logos.dto.request.PlanoCreateRequestDto;
 import br.eti.logos.dto.response.PlanoResponseDto;
 import br.eti.logos.entity.landing.Plano;
-import br.eti.logos.repository.PlanoRepository;
 import br.eti.logos.service.plano.PlanoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,28 +18,26 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AdminPlanoApi {
 
-    private final PlanoRepository planoRepository;
     private final PlanoService planoService;
 
     @GetMapping
     @PreAuthorize("hasRole('I12_GESTAO_VENDAS')")
     public ResponseEntity<List<PlanoResponseDto>> listar() {
-        var planos = planoRepository.findAll().stream().map(this::toDto).toList();
-        return ResponseEntity.ok(planos);
+        return ResponseEntity.ok(planoService.listarTodos());
     }
 
     @PostMapping
     @PreAuthorize("hasRole('I12_GESTAO_VENDAS')")
     public ResponseEntity<PlanoResponseDto> criar(@RequestBody @Valid PlanoCreateRequestDto request) {
         var plano = planoService.criar(request);
-        return ResponseEntity.ok(toDto(plano));
+        return ResponseEntity.ok(toPlanoDto(plano));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('I12_GESTAO_VENDAS')")
     public ResponseEntity<PlanoResponseDto> atualizar(@PathVariable UUID id, @RequestBody PlanoCreateRequestDto request) {
         var plano = planoService.atualizar(id, request);
-        return ResponseEntity.ok(toDto(plano));
+        return ResponseEntity.ok(toPlanoDto(plano));
     }
 
     @PostMapping("/{id}/sincronizar-pagbank")
@@ -50,7 +47,7 @@ public class AdminPlanoApi {
         return ResponseEntity.ok().build();
     }
 
-    private PlanoResponseDto toDto(Plano p) {
+    private PlanoResponseDto toPlanoDto(Plano p) {
         return PlanoResponseDto.builder()
                 .id(p.getId())
                 .nome(p.getNome())

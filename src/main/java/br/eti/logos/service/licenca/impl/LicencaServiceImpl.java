@@ -1,5 +1,6 @@
 package br.eti.logos.service.licenca.impl;
 
+import br.eti.logos.core.util.DateTimeUtil;
 import br.eti.logos.dto.response.LicencaResponseDto;
 import br.eti.logos.entity.landing.Licenca;
 import br.eti.logos.enums.AssinaturaStatusEnum;
@@ -9,6 +10,8 @@ import br.eti.logos.service.licenca.LicencaService;
 import br.eti.logos.service.pagbank.PagBankService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -29,7 +32,10 @@ public class LicencaServiceImpl implements LicencaService {
     private final PagBankService pagBankService;
 
     @Override
+    @Transactional(readOnly = true)
+    @Cacheable(value = "licencas", key = "#status != null ? #status.name() + '_' + #pageable.pageNumber : 'all_' + #pageable.pageNumber")
     public Page<LicencaResponseDto> listar(LicencaStatusEnum status, Pageable pageable) {
+        log.debug("Buscando licenças com status={}, page={} (cache miss)", status, pageable.getPageNumber());
         Page<Licenca> page;
         if (status != null) {
             page = licencaRepository.findAllByStatus(status, pageable);
@@ -40,7 +46,9 @@ public class LicencaServiceImpl implements LicencaService {
     }
 
     @Override
+    @Cacheable(value = "licencas", key = "'igreja_' + #igrejaId")
     public LicencaResponseDto buscarPorIgreja(String igrejaId) {
+        log.debug("Buscando licença por igreja={} (cache miss)", igrejaId);
         var licenca = licencaRepository.findByIgrejaId(igrejaId)
                 .orElseThrow(() -> new IllegalArgumentException("Licença não encontrada para igreja: " + igrejaId));
         return toDto(licenca);
@@ -48,6 +56,7 @@ public class LicencaServiceImpl implements LicencaService {
 
     @Override
     @Transactional
+    @CacheEvict(value = {"licencas", "dashboard"}, allEntries = true)
     public void suspender(UUID licencaId, String motivo) {
         var licenca = findById(licencaId);
         licenca.setStatus(LicencaStatusEnum.SUSPENSA);
@@ -67,6 +76,7 @@ public class LicencaServiceImpl implements LicencaService {
 
     @Override
     @Transactional
+    @CacheEvict(value = {"licencas", "dashboard"}, allEntries = true)
     public void reativar(UUID licencaId) {
         var licenca = findById(licencaId);
         licenca.setStatus(LicencaStatusEnum.ATIVA);
@@ -92,6 +102,7 @@ public class LicencaServiceImpl implements LicencaService {
 
     @Override
     @Transactional
+    @CacheEvict(value = {"licencas", "dashboard"}, allEntries = true)
     public void cancelar(UUID licencaId, String motivo) {
         var licenca = findById(licencaId);
         licenca.setStatus(LicencaStatusEnum.CANCELADA);
@@ -114,6 +125,7 @@ public class LicencaServiceImpl implements LicencaService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "licencas", allEntries = true)
     public void inativarIgreja(String igrejaId, String motivo) {
         igrejaRepository.findById(igrejaId).ifPresent(igreja -> {
             igreja.setAtivo(false);
@@ -157,6 +169,10 @@ public class LicencaServiceImpl implements LicencaService {
 
         var igreja = igrejaRepository.findById(licenca.getIgrejaId()).orElse(null);
 
+        // dataProximaCobranca vem da assinatura, não da licença
+        var assinatura = assinaturaRepository.findByLicencaId(licenca.getId()).orElse(null);
+        var dataProximaCobranca = assinatura != null ? assinatura.getDataProximaFatura() : null;
+
         return LicencaResponseDto.builder()
                 .id(licenca.getId())
                 .igrejaId(licenca.getIgrejaId())
@@ -166,8 +182,9 @@ public class LicencaServiceImpl implements LicencaService {
                 .limiteUsuarios(limite)
                 .usuariosAtivos(usuariosAtivos.intValue())
                 .percentualUso(percentual)
-                .dataInicio(licenca.getDataInicio())
-                .dataExpiracao(licenca.getDataExpiracao())
+                .dataInicio(DateTimeUtil.toIsoString(licenca.getDataInicio()))
+                .dataExpiracao(DateTimeUtil.toIsoString(licenca.getDataExpiracao()))
+                .dataProximaCobranca(DateTimeUtil.toIsoString(dataProximaCobranca))
                 .build();
     }
 }

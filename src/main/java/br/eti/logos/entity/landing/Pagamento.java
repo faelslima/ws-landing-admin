@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.UuidGenerator;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -15,24 +16,27 @@ import java.util.UUID;
         indexes = {
                 @Index(name = "idx_pagamento_assinatura", columnList = "assinatura_id"),
                 @Index(name = "idx_pagamento_status", columnList = "status"),
-                @Index(name = "idx_pagamento_pagbank_invoice", columnList = "pagbankInvoiceId")
+                @Index(name = "idx_pagamento_pagbank_invoice", columnList = "pagbank_invoice_id")
+        },
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_pagbank_invoice_id", columnNames = "pagbank_invoice_id"),
         })
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Pagamento {
+public class Pagamento  implements Serializable {
 
     @Id
     @UuidGenerator
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "assinatura_id", nullable = false)
+    @JoinColumn(name = "assinatura_id", nullable = false, foreignKey = @ForeignKey(name = "fk_pagamento_assinatura_id"))
     private Assinatura assinatura;
 
-    @Column(unique = true)
+    @Column(name = "pagbank_invoice_id", unique = true)
     private String pagbankInvoiceId;
 
     private String pagbankChargeId;
@@ -57,6 +61,9 @@ public class Pagamento {
     private OffsetDateTime dataEstorno;
 
     private String motivoEstorno;
+
+    @Column(length = 1000)
+    private String motivoRecusa;
 
     private OffsetDateTime criadoEm;
 

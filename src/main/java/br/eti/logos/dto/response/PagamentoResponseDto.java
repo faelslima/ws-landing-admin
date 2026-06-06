@@ -7,15 +7,15 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
-import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class PagamentoResponseDto {
+public class PagamentoResponseDto implements Serializable {
 
     private UUID id;
     private String pagbankInvoiceId;
@@ -25,8 +25,9 @@ public class PagamentoResponseDto {
     private BigDecimal valorEstornado;
     private PagamentoStatusEnum status;
     private FormaPagamentoEnum formaPagamento;
-    private OffsetDateTime dataPagamento;
-    private OffsetDateTime dataVencimento;
-    private OffsetDateTime dataCriacao;
+    private String dataPagamento;  // ISO 8601
+    private String dataVencimento; // ISO 8601
+    private String dataCriacao;    // ISO 8601
     private Boolean estornavel;
+    private String motivoRecusa;
 }

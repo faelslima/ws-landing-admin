@@ -8,7 +8,9 @@ import br.eti.logos.enums.LicencaStatusEnum;
 import br.eti.logos.repository.*;
 import br.eti.logos.service.dashboard.DashboardService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -17,6 +19,7 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class DashboardServiceImpl implements DashboardService {
@@ -33,7 +36,9 @@ public class DashboardServiceImpl implements DashboardService {
     private int thresholdPercent;
 
     @Override
+    @Cacheable(value = "dashboard", key = "'metrics'")
     public DashboardDto obterDashboard() {
+        log.debug("Calculando dashboard (cache miss - queries pesadas)");
         var totalIgrejasAtivas = licencaRepository.countByStatus(LicencaStatusEnum.ATIVA);
         var totalIgrejasSuspensas = licencaRepository.countByStatus(LicencaStatusEnum.SUSPENSA);
         var totalLeads = leadRepository.count();
