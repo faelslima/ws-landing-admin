@@ -126,6 +126,7 @@ public interface PagBankSubscriptionsFeign {
     @GetMapping("/customers")
     CustomersListDto listarClientes(
             @RequestHeader("Authorization") String token,
+            @RequestHeader(value = "q", required = false) String searchQuery,
             @RequestParam(required = false) Integer offset,
             @RequestParam(required = false) Integer limit);
 

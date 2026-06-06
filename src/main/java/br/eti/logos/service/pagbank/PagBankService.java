@@ -50,7 +50,7 @@ public interface PagBankService {
     InvoicesListDto listarFaturasAdmin(String subscriptionId);
 
     // Customers
-    CustomersListDto listarClientes(Integer offset, Integer limit);
+    CustomersListDto listarClientes(String searchQuery, Integer offset, Integer limit);
 
     CustomersListDto.Customer buscarCliente(String customerId);
 

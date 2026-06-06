@@ -145,15 +145,17 @@ public class AdminPagSeguroApi {
 
     @GetMapping("/customers")
     public ResponseEntity<CustomersListDto> listarClientes(
+            @RequestHeader(value = "q", required = false) String searchQuery,
             @RequestParam(required = false, defaultValue = "0") Integer offset,
             @RequestParam(required = false, defaultValue = "100") Integer limit
     ) {
-        log.debug("GET /admin/pagseguro/customers - offset={}, limit={}", offset, limit);
+        log.debug("GET /admin/pagseguro/customers - q={}, offset={}, limit={}", searchQuery, offset, limit);
         try {
-            CustomersListDto response = pagBankService.listarClientes(offset, limit);
-            log.info("Listados {} clientes do PagBank (total: {})",
+            CustomersListDto response = pagBankService.listarClientes(searchQuery, offset, limit);
+            log.info("Listados {} clientes do PagBank (total: {}, q={})",
                     response.getCustomers() != null ? response.getCustomers().size() : 0,
-                    response.getResultSet() != null ? response.getResultSet().getTotal() : 0);
+                    response.getResultSet() != null ? response.getResultSet().getTotal() : 0,
+                    searchQuery);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             log.error("Erro ao listar clientes do PagBank", e);

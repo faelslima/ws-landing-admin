@@ -67,8 +67,8 @@ public class SecurityConfig {
             config.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
         }
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
-        config.setExposedHeaders(List.of("Content-Disposition"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With", "q"));
+        config.setExposedHeaders(List.of("Content-Disposition", "q"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 

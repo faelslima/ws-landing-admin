@@ -157,9 +157,9 @@ public class PagBankServiceImpl implements PagBankService {
     // ========================================================================
 
     @Override
-    public br.eti.logos.dto.pagbank.CustomersListDto listarClientes(Integer offset, Integer limit) {
-        log.debug("Listando clientes no PagBank - offset: {}, limit: {}", offset, limit);
-        return subscriptionsFeign.listarClientes(bearerToken(), offset, limit);
+    public br.eti.logos.dto.pagbank.CustomersListDto listarClientes(String searchQuery, Integer offset, Integer limit) {
+        log.debug("Listando clientes no PagBank - q: {}, offset: {}, limit: {}", searchQuery, offset, limit);
+        return subscriptionsFeign.listarClientes(bearerToken(), searchQuery, offset, limit);
     }
 
     @Override
