@@ -37,7 +37,7 @@ public class AdminPagSeguroApi {
 
     @GetMapping("/subscriptions")
     public ResponseEntity<SubscriptionsListDto> listarAssinaturas(
-            @RequestHeader(value = "q", required = false) String searchQuery,
+            @RequestParam(value = "search", required = false) String searchQuery,
             @RequestParam(required = false) String status,
             @RequestParam(name = "payment_method_type", required = false) String paymentMethodType,
             @RequestParam(name = "created_at_start", required = false) String createdAtStart,
@@ -145,7 +145,7 @@ public class AdminPagSeguroApi {
 
     @GetMapping("/customers")
     public ResponseEntity<CustomersListDto> listarClientes(
-            @RequestHeader(value = "q", required = false) String searchQuery,
+            @RequestParam(value = "search", required = false) String searchQuery,
             @RequestParam(required = false, defaultValue = "0") Integer offset,
             @RequestParam(required = false, defaultValue = "100") Integer limit
     ) {
