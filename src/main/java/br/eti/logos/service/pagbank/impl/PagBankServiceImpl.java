@@ -5,6 +5,7 @@ import br.eti.logos.feign.PagBankOrdersFeign;
 import br.eti.logos.feign.PagBankSubscriptionsFeign;
 import br.eti.logos.service.pagbank.PagBankService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,8 +26,24 @@ public class PagBankServiceImpl implements PagBankService {
     @Value("${pagbank.token}")
     private String pagbankToken;
 
+    @Value("${pagbank.subscriptions.url}")
+    private String subscriptionsUrl;
+
+    @Value("${pagbank.orders.url}")
+    private String ordersUrl;
+
+    @PostConstruct
+    public void logConfig() {
+        if (pagbankToken == null || pagbankToken.isBlank()) {
+            log.error("[PagBank] PAGBANK_TOKEN nao configurado! Todas as chamadas a API falharao com 401.");
+        } else {
+            log.info("[PagBank] Configuracao validada — token: {} chars, subscriptions: {}, orders: {}",
+                    pagbankToken.trim().length(), subscriptionsUrl, ordersUrl);
+        }
+    }
+
     private String bearerToken() {
-        return "Bearer " + pagbankToken;
+        return "Bearer " + pagbankToken.trim();
     }
 
     // ========================================================================
