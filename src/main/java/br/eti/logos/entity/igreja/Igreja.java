@@ -7,7 +7,7 @@ import org.hibernate.annotations.UuidGenerator;
 import java.util.UUID;
 
 @Entity
-@Table(name = "tb_igreja", schema = "landing")
+@Table(name = "tb_igreja", schema = "comum")
 @Getter
 @Setter
 @Builder
