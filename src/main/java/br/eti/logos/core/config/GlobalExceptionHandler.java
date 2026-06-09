@@ -28,7 +28,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
                 "status", 401,
                 "error", "Unauthorized",
-                "message", "Acesso não autorizado",
+                "message", e.getMessage() != null ? e.getMessage() : "Acesso não autorizado",
                 "timestamp", OffsetDateTime.now().toString()
         ));
     }

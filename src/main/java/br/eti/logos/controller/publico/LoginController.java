@@ -3,6 +3,7 @@ package br.eti.logos.controller.publico;
 import br.eti.logos.dto.auth.AuthResponseDto;
 import br.eti.logos.dto.auth.LoginRequestDto;
 import br.eti.logos.feign.WsSecurityFeign;
+import br.eti.logos.service.auth.LoginService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -13,11 +14,12 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class LoginController {
 
+    private final LoginService loginService;
     private final WsSecurityFeign wsSecurityFeign;
 
     @PostMapping
     public ResponseEntity<AuthResponseDto> login(@RequestBody @Valid LoginRequestDto request) {
-        return ResponseEntity.ok(wsSecurityFeign.login(request));
+        return ResponseEntity.ok(loginService.login(request));
     }
 
     @PutMapping("/session/invalidate/{token}")
