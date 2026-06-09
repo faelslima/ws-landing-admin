@@ -1,25 +1,26 @@
 package br.eti.logos.service.onboarding.impl;
 
+import br.eti.logos.core.util.MoneyUtil;
 import br.eti.logos.dto.pagbank.*;
 import br.eti.logos.dto.request.CheckoutRequestDto;
 import br.eti.logos.dto.request.LeadRequestDto;
+import br.eti.logos.dto.saga.OnboardingProvisioningEvent;
 import br.eti.logos.entity.igreja.Igreja;
 import br.eti.logos.entity.landing.*;
-import br.eti.logos.entity.seguranca.Usuario;
 import br.eti.logos.enums.AssinaturaStatusEnum;
 import br.eti.logos.enums.LeadStatusEnum;
 import br.eti.logos.enums.LicencaStatusEnum;
 import br.eti.logos.repository.*;
-import br.eti.logos.service.email.EmailService;
 import br.eti.logos.service.pagbank.PagBankService;
 import br.eti.logos.service.onboarding.OnboardingService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -29,15 +30,21 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class OnboardingServiceImpl implements OnboardingService {
 
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     private final LeadRepository leadRepository;
     private final PlanoRepository planoRepository;
     private final IgrejaRepository igrejaRepository;
-    private final UsuarioRepository usuarioRepository;
     private final LicencaRepository licencaRepository;
     private final AssinaturaRepository assinaturaRepository;
     private final PagBankService pagBankService;
-    private final EmailService emailService;
-    private final BCryptPasswordEncoder passwordEncoder;
+    private final RabbitTemplate rabbitTemplate;
+
+    @Value("${rabbitmq.landing.exchange}")
+    private String exchange;
+
+    @Value("${rabbitmq.landing.saga.provisioning.routing.key}")
+    private String sagaProvisioningRoutingKey;
 
     @Override
     @Transactional
@@ -110,7 +117,7 @@ public class OnboardingServiceImpl implements OnboardingService {
                                 .build())
                         .build()))
                 .amount(PagBankSubscriptionDto.PagBankSubscriptionAmountDto.builder()
-                        .value(plano.getValorAnualCentavos().intValue())
+                        .value(MoneyUtil.reaisParaCentavos(plano.getValorAnual()))
                         .currency("BRL")
                         .build())
                 .proRata(false)
@@ -136,7 +143,7 @@ public class OnboardingServiceImpl implements OnboardingService {
                 .cnpj(request.getCnpj())
                 .email(request.getEmail())
                 .telefone(request.getTelefone())
-                .ativo(false) // ativada após confirmação de pagamento
+                .ativo(false)
                 .build();
         igrejaRepository.save(igreja);
 
@@ -156,7 +163,7 @@ public class OnboardingServiceImpl implements OnboardingService {
                 .pagbankSubscriptionId(pagbankResponse.getId())
                 .pagbankPlanId(plano.getPagbankPlanId())
                 .status(AssinaturaStatusEnum.PENDING)
-                .valorAnual(plano.getValorAnualCentavos())
+                .valorAnual(plano.getValorAnual())
                 .build();
         assinaturaRepository.save(assinatura);
 
@@ -179,25 +186,14 @@ public class OnboardingServiceImpl implements OnboardingService {
         licenca.setStatus(LicencaStatusEnum.ATIVA);
         licencaRepository.save(licenca);
 
-        // Ativar igreja
         var igreja = igrejaRepository.findById(licenca.getIgrejaId()).orElse(null);
         if (igreja != null && !igreja.getAtivo()) {
             igreja.setAtivo(true);
             igrejaRepository.save(igreja);
 
-            // Criar usuário admin da igreja
-            criarUsuarioAdmin(igreja);
-
-            // Enviar email de boas-vindas
-            emailService.enviarBoasVindas(
-                    igreja.getEmail(),
-                    igreja.getRazaoSocial(),
-                    "Administrador",
-                    "pt"
-            );
+            publicarProvisionamento(igreja, licenca.getPlano().getNome());
         }
 
-        // Atualizar lead como convertido
         leadRepository.findAllByOrderByCriadoEmDesc(null).stream()
                 .filter(l -> igreja != null && l.getEmail().equals(igreja.getEmail())
                         && l.getStatus() != LeadStatusEnum.CONVERTIDO)
@@ -212,23 +208,24 @@ public class OnboardingServiceImpl implements OnboardingService {
         log.info("Onboarding concluído para igreja: {}", igreja != null ? igreja.getRazaoSocial() : "N/A");
     }
 
-    private void criarUsuarioAdmin(Igreja igreja) {
-        if (usuarioRepository.existsByEmail(igreja.getEmail())) {
-            log.warn("Usuário já existe para email: {}", igreja.getEmail());
-            return;
+    private void publicarProvisionamento(Igreja igreja, String planoNome) {
+        try {
+            var event = OnboardingProvisioningEvent.builder()
+                    .igrejaId(igreja.getId())
+                    .razaoSocial(igreja.getRazaoSocial())
+                    .nomeFantasia(igreja.getNomeFantasia())
+                    .cnpj(igreja.getCnpj())
+                    .email(igreja.getEmail())
+                    .telefone(igreja.getTelefone())
+                    .nomeResponsavel("Administrador")
+                    .planoNome(planoNome)
+                    .lang("pt")
+                    .build();
+            var payload = OBJECT_MAPPER.writeValueAsString(event);
+            rabbitTemplate.convertAndSend(exchange, sagaProvisioningRoutingKey, payload);
+            log.info("Evento de provisionamento publicado para igreja: {} ({})", igreja.getRazaoSocial(), igreja.getId());
+        } catch (Exception e) {
+            log.error("Falha ao publicar evento de provisionamento para {}: {}", igreja.getRazaoSocial(), e.getMessage());
         }
-
-        var usuario = new Usuario();
-        usuario.setId(UUID.randomUUID().toString());
-        usuario.setNome("Administrador");
-        usuario.setUsername(igreja.getEmail());
-        usuario.setEmail(igreja.getEmail());
-        usuario.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
-        usuario.setIgrejaId(igreja.getId());
-        usuario.setAtivo(true);
-        usuario.setIsSystemAdmin(false);
-        usuarioRepository.save(usuario);
-
-        log.info("Usuário admin criado para igreja: {}", igreja.getRazaoSocial());
     }
 }

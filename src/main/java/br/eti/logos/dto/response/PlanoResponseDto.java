@@ -22,7 +22,7 @@ public class PlanoResponseDto implements Serializable {
     private String descricao;
     private PlanoTierEnum tier;
     private Integer limiteUsuarios;
-    private BigDecimal valorAnualCentavos;
+    private BigDecimal valorAnual;
     private Boolean ativo;
     private String pagbankPlanId;
     private List<String> recursos;

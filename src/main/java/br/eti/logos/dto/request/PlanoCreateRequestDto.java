@@ -32,7 +32,7 @@ public class PlanoCreateRequestDto {
 
     @NotNull
     @Positive
-    private BigDecimal valorAnualCentavos;
+    private BigDecimal valorAnual;
 
     private List<String> recursos;
 

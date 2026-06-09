@@ -28,7 +28,6 @@ public class LicencaServiceImpl implements LicencaService {
     private final LicencaRepository licencaRepository;
     private final AssinaturaRepository assinaturaRepository;
     private final IgrejaRepository igrejaRepository;
-    private final UsuarioRepository usuarioRepository;
     private final PagBankService pagBankService;
 
     @Override
@@ -163,9 +162,7 @@ public class LicencaServiceImpl implements LicencaService {
     }
 
     private LicencaResponseDto toDto(Licenca licenca) {
-        var usuariosAtivos = usuarioRepository.countUsuariosAtivosByIgreja(licenca.getIgrejaId());
         var limite = licenca.getPlano().getLimiteUsuarios();
-        var percentual = limite > 0 ? (int) ((usuariosAtivos * 100) / limite) : 0;
 
         var igreja = igrejaRepository.findById(licenca.getIgrejaId()).orElse(null);
 
@@ -180,8 +177,8 @@ public class LicencaServiceImpl implements LicencaService {
                 .planoNome(licenca.getPlano().getNome())
                 .status(licenca.getStatus())
                 .limiteUsuarios(limite)
-                .usuariosAtivos(usuariosAtivos.intValue())
-                .percentualUso(percentual)
+                .usuariosAtivos(0)
+                .percentualUso(0)
                 .dataInicio(DateTimeUtil.toIsoString(licenca.getDataInicio()))
                 .dataExpiracao(DateTimeUtil.toIsoString(licenca.getDataExpiracao()))
                 .dataProximaCobranca(DateTimeUtil.toIsoString(dataProximaCobranca))

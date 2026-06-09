@@ -54,7 +54,7 @@ public class AdminPlanoApi {
                 .descricao(p.getDescricao())
                 .tier(p.getTier())
                 .limiteUsuarios(p.getLimiteUsuarios())
-                .valorAnualCentavos(p.getValorAnualCentavos())
+                .valorAnual(p.getValorAnual())
                 .ativo(p.getAtivo())
                 .pagbankPlanId(p.getPagbankPlanId())
                 .recursos(p.getRecursos())

@@ -1,5 +1,6 @@
 package br.eti.logos.service.plano.impl;
 
+import br.eti.logos.core.util.MoneyUtil;
 import br.eti.logos.dto.pagbank.PagBankPlanDto;
 import br.eti.logos.dto.request.PlanoCreateRequestDto;
 import br.eti.logos.dto.response.PlanoResponseDto;
@@ -54,7 +55,7 @@ public class PlanoServiceImpl implements PlanoService {
                 .descricao(request.getDescricao())
                 .tier(request.getTier())
                 .limiteUsuarios(request.getLimiteUsuarios())
-                .valorAnualCentavos(request.getValorAnualCentavos())
+                .valorAnual(request.getValorAnual())
                 .recursos(request.getRecursos())
                 .ativo(request.getAtivo() != null ? request.getAtivo() : true)
                 .build();
@@ -90,9 +91,9 @@ public class PlanoServiceImpl implements PlanoService {
         if (request.getAtivo() != null) plano.setAtivo(request.getAtivo());
         if (request.getRecursos() != null) plano.setRecursos(request.getRecursos());
 
-        if (request.getValorAnualCentavos() != null &&
-            !request.getValorAnualCentavos().equals(plano.getValorAnualCentavos())) {
-            plano.setValorAnualCentavos(request.getValorAnualCentavos());
+        if (request.getValorAnual() != null &&
+                !request.getValorAnual().equals(plano.getValorAnual())) {
+            plano.setValorAnual(request.getValorAnual());
             valorAlterado = true;
         }
 
@@ -124,7 +125,7 @@ public class PlanoServiceImpl implements PlanoService {
                 .name(plano.getNome() + " - Anual")
                 .description(plano.getDescricao())
                 .amount(PagBankPlanDto.PagBankAmountDto.builder()
-                        .value(plano.getValorAnualCentavos().intValue())
+                        .value(MoneyUtil.reaisParaCentavos(plano.getValorAnual()))
                         .currency("BRL")
                         .build())
                 .interval(PagBankPlanDto.PagBankIntervalDto.builder()
@@ -138,11 +139,15 @@ public class PlanoServiceImpl implements PlanoService {
                 .paymentMethod(List.of("CREDIT_CARD"))
                 .build();
 
-        var response = pagBankService.criarPlano(pagBankPlanDto);
-        plano.setPagbankPlanId(response.getId());
+        try {
+            var response = pagBankService.criarPlano(pagBankPlanDto);
+            plano.setPagbankPlanId(response.getId());
+            log.info("Plano {} sincronizado. PagBank ID: {}", plano.getNome(), response.getId());
+        } catch (Exception ex) {
+            var string = "";
+        }
         planoRepository.save(plano);
 
-        log.info("Plano {} sincronizado. PagBank ID: {}", plano.getNome(), response.getId());
     }
 
     private PlanoResponseDto toDto(Plano p) {
@@ -152,7 +157,7 @@ public class PlanoServiceImpl implements PlanoService {
                 .descricao(p.getDescricao())
                 .tier(p.getTier())
                 .limiteUsuarios(p.getLimiteUsuarios())
-                .valorAnualCentavos(p.getValorAnualCentavos())
+                .valorAnual(p.getValorAnual())
                 .ativo(p.getAtivo())
                 .pagbankPlanId(p.getPagbankPlanId())
                 .recursos(p.getRecursos())

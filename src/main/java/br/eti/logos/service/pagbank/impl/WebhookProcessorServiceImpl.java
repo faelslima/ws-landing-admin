@@ -1,5 +1,6 @@
 package br.eti.logos.service.pagbank.impl;
 
+import br.eti.logos.core.util.MoneyUtil;
 import br.eti.logos.entity.landing.Pagamento;
 import br.eti.logos.entity.landing.WebhookEvent;
 import br.eti.logos.enums.*;
@@ -18,7 +19,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.Map;
 
@@ -196,7 +196,7 @@ public class WebhookProcessorServiceImpl implements WebhookProcessorService {
                             .assinatura(assinatura)
                             .pagbankInvoiceId(invoice.getId())
                             .status(PagamentoStatusEnum.PAID)
-                            .valor(BigDecimal.valueOf(valorCentavos).divide(BigDecimal.valueOf(100)))
+                            .valor(MoneyUtil.centavosParaReais(valorCentavos))
                             .formaPagamento(FormaPagamentoEnum.CREDIT_CARD)
                             .dataPagamento(OffsetDateTime.now())
                             .build();
@@ -226,7 +226,7 @@ public class WebhookProcessorServiceImpl implements WebhookProcessorService {
                     .assinatura(assinatura)
                     .pagbankInvoiceId(invoiceId)
                     .status(PagamentoStatusEnum.PENDING)
-                    .valor(BigDecimal.valueOf(valorCentavos).divide(BigDecimal.valueOf(100)))
+                    .valor(MoneyUtil.centavosParaReais(valorCentavos))
                     .formaPagamento(FormaPagamentoEnum.CREDIT_CARD)
                     .build();
                 pagamentoRepository.save(pagamento);
@@ -240,7 +240,7 @@ public class WebhookProcessorServiceImpl implements WebhookProcessorService {
     private void processarInvoicePaid(JsonNode json) {
         var invoiceId = json.path("id").asText();
         var subscriptionId = json.path("subscription_id").asText();
-        var valor = json.path("amount").path("value").asInt();
+        var valorCentavos = json.path("amount").path("value").asInt();
 
         var assinatura = assinaturaRepository.findByPagbankSubscriptionId(subscriptionId).orElse(null);
         if (assinatura == null) {
@@ -257,7 +257,7 @@ public class WebhookProcessorServiceImpl implements WebhookProcessorService {
                 .assinatura(assinatura)
                 .pagbankInvoiceId(invoiceId)
                 .status(PagamentoStatusEnum.PAID)
-                .valor(BigDecimal.valueOf(valor))
+                .valor(MoneyUtil.centavosParaReais(valorCentavos))
                 .formaPagamento(FormaPagamentoEnum.CREDIT_CARD)
                 .dataPagamento(OffsetDateTime.now())
                 .build();
@@ -267,7 +267,7 @@ public class WebhookProcessorServiceImpl implements WebhookProcessorService {
         assinatura.setDataProximaFatura(OffsetDateTime.now().plusYears(1));
         assinaturaRepository.save(assinatura);
 
-        log.info("Invoice paga registrada: {} - Valor: {}", invoiceId, valor);
+        log.info("Invoice paga registrada: {} - Valor: R$ {}", invoiceId, pagamento.getValor());
     }
 
     private void processarInvoiceOverdue(JsonNode json) {
@@ -300,7 +300,7 @@ public class WebhookProcessorServiceImpl implements WebhookProcessorService {
                             .orElseGet(() -> Pagamento.builder()
                                 .assinatura(assinatura)
                                 .pagbankInvoiceId(invoice.getId())
-                                .valor(BigDecimal.valueOf(valorCentavos).divide(BigDecimal.valueOf(100)))
+                                .valor(MoneyUtil.centavosParaReais(valorCentavos))
                                 .formaPagamento(FormaPagamentoEnum.CREDIT_CARD)
                                 .build());
 

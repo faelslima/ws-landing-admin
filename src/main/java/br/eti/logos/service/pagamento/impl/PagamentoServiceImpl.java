@@ -1,6 +1,7 @@
 package br.eti.logos.service.pagamento.impl;
 
 import br.eti.logos.core.util.DateTimeUtil;
+import br.eti.logos.core.util.MoneyUtil;
 import br.eti.logos.dto.request.RefundRequestDto;
 import br.eti.logos.dto.response.PagamentoResponseDto;
 import br.eti.logos.entity.landing.Pagamento;
@@ -17,7 +18,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -62,15 +62,14 @@ public class PagamentoServiceImpl implements PagamentoService {
             throw new IllegalStateException("Apenas pagamentos com status PAID podem ser estornados");
         }
 
-        var valorEstorno = request.getValorCentavos() != null
-                ? request.getValorCentavos()
-                : pagamento.getValor().intValue();
+        var estornoTotal = request.getValor() != null
+                ? request.getValor()
+                : pagamento.getValor();
 
         if (pagamento.getPagbankChargeId() != null) {
-            pagBankService.cancelarCobranca(pagamento.getPagbankChargeId(), valorEstorno);
+            pagBankService.cancelarCobranca(pagamento.getPagbankChargeId(), MoneyUtil.reaisParaCentavos(estornoTotal));
         }
 
-        var estornoTotal = BigDecimal.valueOf(valorEstorno);
         if (estornoTotal.compareTo(pagamento.getValor()) >= 0) {
             pagamento.setStatus(PagamentoStatusEnum.REFUNDED);
         } else {
@@ -81,7 +80,7 @@ public class PagamentoServiceImpl implements PagamentoService {
         pagamento.setMotivoEstorno(request.getMotivo());
         pagamentoRepository.save(pagamento);
 
-        log.info("Pagamento estornado: {} - Valor: {}", pagamento.getId(), valorEstorno);
+        log.info("Pagamento estornado: {} - Valor: R$ {}", pagamento.getId(), estornoTotal);
     }
 
     @Override

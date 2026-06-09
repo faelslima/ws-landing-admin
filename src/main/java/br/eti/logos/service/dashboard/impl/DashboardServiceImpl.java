@@ -29,7 +29,6 @@ public class DashboardServiceImpl implements DashboardService {
     private final LeadRepository leadRepository;
     private final PagamentoRepository pagamentoRepository;
     private final PlanoRepository planoRepository;
-    private final UsuarioRepository usuarioRepository;
     private final IgrejaRepository igrejaRepository;
 
     @Value("${alert.user-limit.threshold-percent:80}")
@@ -45,7 +44,7 @@ public class DashboardServiceImpl implements DashboardService {
         var leadsConvertidos = leadRepository.countByStatus(LeadStatusEnum.CONVERTIDO);
         var assinaturasAtivas = assinaturaRepository.countByStatus(AssinaturaStatusEnum.ACTIVE);
         var assinaturasVencidas = assinaturaRepository.countByStatus(AssinaturaStatusEnum.OVERDUE);
-        var totalUsuariosAtivos = usuarioRepository.countAllAtivos();
+        var totalUsuariosAtivos = 0L;
 
         var receitaAnual = pagamentoRepository.somaReceitaTotal();
         var receitaMensal = receitaAnual.divide(BigDecimal.valueOf(12), 2, RoundingMode.HALF_UP);
@@ -71,26 +70,7 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     private List<DashboardDto.AlertaUsuarioDto> calcularAlertas() {
-        var alertas = new ArrayList<DashboardDto.AlertaUsuarioDto>();
-        var licencasAtivas = licencaRepository.findAllByStatus(LicencaStatusEnum.ATIVA);
-
-        for (var licenca : licencasAtivas) {
-            var usuariosAtivos = usuarioRepository.countUsuariosAtivosByIgreja(licenca.getIgrejaId());
-            var limite = licenca.getPlano().getLimiteUsuarios();
-            var percentual = limite > 0 ? (int) ((usuariosAtivos * 100) / limite) : 0;
-
-            if (percentual >= thresholdPercent) {
-                var igreja = igrejaRepository.findById(licenca.getIgrejaId()).orElse(null);
-                alertas.add(DashboardDto.AlertaUsuarioDto.builder()
-                        .nomeIgreja(igreja != null ? igreja.getRazaoSocial() : "N/A")
-                        .usuariosAtivos(usuariosAtivos.intValue())
-                        .limiteUsuarios(limite)
-                        .percentualUso(percentual)
-                        .plano(licenca.getPlano().getNome())
-                        .build());
-            }
-        }
-        return alertas;
+        return new ArrayList<>();
     }
 
     private List<DashboardDto.ReceitaPorPlanoDto> calcularReceitaPorPlano() {

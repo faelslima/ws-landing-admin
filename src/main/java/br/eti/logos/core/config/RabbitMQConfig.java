@@ -32,6 +32,18 @@ public class RabbitMQConfig {
     @Value("${rabbitmq.landing.alert.routing.key}")
     private String alertRoutingKey;
 
+    @Value("${rabbitmq.landing.saga.provisioning.queue}")
+    private String sagaProvisioningQueue;
+
+    @Value("${rabbitmq.landing.saga.provisioning.routing.key}")
+    private String sagaProvisioningRoutingKey;
+
+    @Value("${rabbitmq.landing.saga.completed.queue}")
+    private String sagaCompletedQueue;
+
+    @Value("${rabbitmq.landing.saga.completed.routing.key}")
+    private String sagaCompletedRoutingKey;
+
     @Bean
     public DirectExchange landingExchange() {
         return new DirectExchange(exchange);
@@ -68,6 +80,34 @@ public class RabbitMQConfig {
     @Bean
     public Binding alertBinding() {
         return BindingBuilder.bind(alertQueue()).to(landingExchange()).with(alertRoutingKey);
+    }
+
+    // Saga: onboarding.provisioning (landing → security)
+    @Bean
+    public Queue sagaProvisioningQueue() {
+        return QueueBuilder.durable(sagaProvisioningQueue)
+                .withArgument("x-dead-letter-exchange", exchange + ".dlq")
+                .withArgument("x-dead-letter-routing-key", sagaProvisioningRoutingKey + ".dlq")
+                .build();
+    }
+
+    @Bean
+    public Binding sagaProvisioningBinding() {
+        return BindingBuilder.bind(sagaProvisioningQueue()).to(landingExchange()).with(sagaProvisioningRoutingKey);
+    }
+
+    // Saga: onboarding.completed (security → landing)
+    @Bean
+    public Queue sagaCompletedQueue() {
+        return QueueBuilder.durable(sagaCompletedQueue)
+                .withArgument("x-dead-letter-exchange", exchange + ".dlq")
+                .withArgument("x-dead-letter-routing-key", sagaCompletedRoutingKey + ".dlq")
+                .build();
+    }
+
+    @Bean
+    public Binding sagaCompletedBinding() {
+        return BindingBuilder.bind(sagaCompletedQueue()).to(landingExchange()).with(sagaCompletedRoutingKey);
     }
 
     // DLQ

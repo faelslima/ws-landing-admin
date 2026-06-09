@@ -37,7 +37,7 @@ public class Plano implements Serializable {
     private Integer limiteUsuarios;
 
     @Column(nullable = false, precision = 12, scale = 2)
-    private BigDecimal valorAnualCentavos;
+    private BigDecimal valorAnual;
 
     @Column(nullable = false)
     private Boolean ativo;
