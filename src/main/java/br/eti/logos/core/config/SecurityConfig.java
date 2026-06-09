@@ -35,6 +35,7 @@ public class SecurityConfig {
     private static final String[] PUBLIC_URLS = {
             "/actuator/health",
             "/login",
+            "/login/session/invalidate/**",
             "/public/**",
             "/webhooks/**",
             "/debug/**"

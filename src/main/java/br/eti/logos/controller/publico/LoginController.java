@@ -6,10 +6,7 @@ import br.eti.logos.feign.WsSecurityFeign;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/login")
@@ -21,5 +18,15 @@ public class LoginController {
     @PostMapping
     public ResponseEntity<AuthResponseDto> login(@RequestBody @Valid LoginRequestDto request) {
         return ResponseEntity.ok(wsSecurityFeign.login(request));
+    }
+
+    @PutMapping("/session/invalidate/{token}")
+    public ResponseEntity<Void> invalidarSessao(@PathVariable String token) {
+        try {
+            wsSecurityFeign.invalidarSessao(token);
+        } catch (Exception ignored) {
+            // best-effort: não falha o logout do cliente se ws-security estiver indisponível
+        }
+        return ResponseEntity.ok().build();
     }
 }
