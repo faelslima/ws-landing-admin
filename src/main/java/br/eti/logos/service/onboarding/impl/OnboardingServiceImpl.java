@@ -7,9 +7,7 @@ import br.eti.logos.dto.request.LeadRequestDto;
 import br.eti.logos.dto.saga.OnboardingProvisioningEvent;
 import br.eti.logos.entity.igreja.Igreja;
 import br.eti.logos.entity.landing.*;
-import br.eti.logos.enums.AssinaturaStatusEnum;
-import br.eti.logos.enums.LeadStatusEnum;
-import br.eti.logos.enums.LicencaStatusEnum;
+import br.eti.logos.enums.*;
 import br.eti.logos.repository.*;
 import br.eti.logos.service.pagbank.PagBankService;
 import br.eti.logos.service.onboarding.OnboardingService;
@@ -37,6 +35,7 @@ public class OnboardingServiceImpl implements OnboardingService {
     private final IgrejaRepository igrejaRepository;
     private final LicencaRepository licencaRepository;
     private final AssinaturaRepository assinaturaRepository;
+    private final PagamentoRepository pagamentoRepository;
     private final PagBankService pagBankService;
     private final RabbitTemplate rabbitTemplate;
 
@@ -78,6 +77,22 @@ public class OnboardingServiceImpl implements OnboardingService {
         if (plano.getPagbankPlanId() == null) {
             throw new IllegalStateException("Plano não sincronizado com PagBank");
         }
+
+        // Upsert de lead: cria NOVO se não existe, promove para QUALIFICADO se já existe
+        var lead = leadRepository.findTopByEmailOrderByCriadoEmDesc(request.getEmail())
+                .orElseGet(() -> Lead.builder()
+                        .nomeIgreja(request.getNomeIgreja())
+                        .nomeResponsavel(request.getNomeResponsavel())
+                        .email(request.getEmail())
+                        .telefone(request.getTelefone())
+                        .cnpj(request.getCnpj())
+                        .status(LeadStatusEnum.NOVO)
+                        .build());
+
+        if (lead.getStatus() == LeadStatusEnum.NOVO || lead.getStatus() == LeadStatusEnum.CONTATADO) {
+            lead.setStatus(LeadStatusEnum.QUALIFICADO);
+        }
+        leadRepository.save(lead);
 
         var telefoneDigits = request.getTelefone().replaceAll("\\D", "");
 
@@ -127,15 +142,6 @@ public class OnboardingServiceImpl implements OnboardingService {
 
         var pagbankResponse = pagBankService.criarAssinatura(subscriptionDto);
 
-        // Salvar lead como qualificado
-        leadRepository.findAllByOrderByCriadoEmDesc(null).stream()
-                .filter(l -> l.getEmail().equals(request.getEmail()))
-                .findFirst()
-                .ifPresent(lead -> {
-                    lead.setStatus(LeadStatusEnum.QUALIFICADO);
-                    leadRepository.save(lead);
-                });
-
         // Criar igreja
         var igreja = Igreja.builder()
                 .razaoSocial(request.getNomeIgreja())
@@ -167,8 +173,75 @@ public class OnboardingServiceImpl implements OnboardingService {
                 .build();
         assinaturaRepository.save(assinatura);
 
+        // Registrar pagamento inicial com status vindo da invoice do PagBank
+        registrarPagamentoInicial(assinatura, pagbankResponse.getId(), plano.getValorAnual());
+
         log.info("Checkout criado. PagBank subscription: {}", pagbankResponse.getId());
         return pagbankResponse.getId();
+    }
+
+    private void registrarPagamentoInicial(Assinatura assinatura, String subscriptionId, java.math.BigDecimal valorPlano) {
+        try {
+            var invoices = pagBankService.listarFaturas(subscriptionId);
+            if (invoices == null || invoices.isEmpty()) {
+                log.warn("Nenhuma invoice encontrada logo após criação da subscription: {}", subscriptionId);
+                return;
+            }
+
+            var invoice = invoices.get(0);
+
+            if (pagamentoRepository.findByPagbankInvoiceId(invoice.getId()).isPresent()) {
+                return;
+            }
+
+            var statusPagamento = mapearStatusInvoice(invoice.getStatus());
+            var valorCentavos = invoice.getAmount() != null && invoice.getAmount().getValue() != null
+                    ? invoice.getAmount().getValue() : 0;
+            var valor = valorCentavos > 0 ? MoneyUtil.centavosParaReais(valorCentavos) : valorPlano;
+
+            var pagamento = Pagamento.builder()
+                    .assinatura(assinatura)
+                    .pagbankInvoiceId(invoice.getId())
+                    .status(statusPagamento)
+                    .valor(valor)
+                    .formaPagamento(FormaPagamentoEnum.CREDIT_CARD)
+                    .dataPagamento("PAID".equalsIgnoreCase(invoice.getStatus()) ? OffsetDateTime.now() : null)
+                    .motivoRecusa(statusPagamento == PagamentoStatusEnum.DECLINED
+                            ? extrairMotivoRecusa(invoice) : null)
+                    .build();
+            pagamentoRepository.save(pagamento);
+
+            log.info("Pagamento inicial registrado: invoice={} status={} subscription={}",
+                    invoice.getId(), statusPagamento, subscriptionId);
+        } catch (Exception e) {
+            log.error("Falha ao registrar pagamento inicial da subscription {}: {}", subscriptionId, e.getMessage());
+        }
+    }
+
+    private PagamentoStatusEnum mapearStatusInvoice(String invoiceStatus) {
+        if (invoiceStatus == null) return PagamentoStatusEnum.PENDING;
+        return switch (invoiceStatus.toUpperCase()) {
+            case "PAID" -> PagamentoStatusEnum.PAID;
+            case "OVERDUE", "UNPAID" -> PagamentoStatusEnum.DECLINED;
+            case "REFUNDED" -> PagamentoStatusEnum.REFUNDED;
+            default -> PagamentoStatusEnum.PENDING;
+        };
+    }
+
+    private String extrairMotivoRecusa(PagBankInvoiceDto invoice) {
+        if (invoice.getDeclineReason() != null && !invoice.getDeclineReason().isBlank()) {
+            return invoice.getDeclineReason();
+        }
+        if (invoice.getPaymentResponse() != null) {
+            var code = invoice.getPaymentResponse().getCode();
+            var message = invoice.getPaymentResponse().getMessage();
+            if (code != null || message != null) {
+                return String.format("Código: %s - %s",
+                        code != null ? code : "N/A",
+                        message != null ? message : "Recusado pela operadora");
+            }
+        }
+        return "Pagamento recusado - verifique dados do cartão";
     }
 
     @Override
@@ -194,16 +267,16 @@ public class OnboardingServiceImpl implements OnboardingService {
             publicarProvisionamento(igreja, licenca.getPlano().getNome());
         }
 
-        leadRepository.findAllByOrderByCriadoEmDesc(null).stream()
-                .filter(l -> igreja != null && l.getEmail().equals(igreja.getEmail())
-                        && l.getStatus() != LeadStatusEnum.CONVERTIDO)
-                .findFirst()
-                .ifPresent(lead -> {
-                    lead.setStatus(LeadStatusEnum.CONVERTIDO);
-                    lead.setIgrejaIdConvertida(igreja.getId());
-                    lead.setDataConversao(OffsetDateTime.now());
-                    leadRepository.save(lead);
-                });
+        if (igreja != null) {
+            leadRepository.findTopByEmailOrderByCriadoEmDesc(igreja.getEmail())
+                    .filter(l -> l.getStatus() != LeadStatusEnum.CONVERTIDO)
+                    .ifPresent(lead -> {
+                        lead.setStatus(LeadStatusEnum.CONVERTIDO);
+                        lead.setIgrejaIdConvertida(igreja.getId());
+                        lead.setDataConversao(OffsetDateTime.now());
+                        leadRepository.save(lead);
+                    });
+        }
 
         log.info("Onboarding concluído para igreja: {}", igreja != null ? igreja.getRazaoSocial() : "N/A");
     }

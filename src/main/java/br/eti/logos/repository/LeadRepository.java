@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.OffsetDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface LeadRepository extends JpaRepository<Lead, UUID> {
@@ -16,6 +17,8 @@ public interface LeadRepository extends JpaRepository<Lead, UUID> {
     Page<Lead> findAllByStatus(LeadStatusEnum status, Pageable pageable);
 
     Page<Lead> findAllByOrderByCriadoEmDesc(Pageable pageable);
+
+    Optional<Lead> findTopByEmailOrderByCriadoEmDesc(String email);
 
     Long countByStatus(LeadStatusEnum status);
 

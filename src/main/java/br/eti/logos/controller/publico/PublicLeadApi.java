@@ -32,8 +32,8 @@ public class PublicLeadApi {
     }
 
     @PostMapping("/checkout")
-    public ResponseEntity<String> checkout(@RequestBody @Valid CheckoutRequestDto request) {
-        var subscriptionId = onboardingService.iniciarCheckout(request);
-        return ResponseEntity.ok(subscriptionId);
+    public ResponseEntity<Void> checkout(@RequestBody @Valid CheckoutRequestDto request) {
+        onboardingService.iniciarCheckout(request);
+        return ResponseEntity.noContent().build();
     }
 }

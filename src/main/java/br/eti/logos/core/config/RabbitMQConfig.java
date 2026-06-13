@@ -127,6 +127,26 @@ public class RabbitMQConfig {
     }
 
     @Bean
+    public Queue dlqSagaProvisioningQueue() {
+        return QueueBuilder.durable(sagaProvisioningQueue + ".dlq").build();
+    }
+
+    @Bean
+    public Binding dlqSagaProvisioningBinding() {
+        return BindingBuilder.bind(dlqSagaProvisioningQueue()).to(dlqExchange()).with(sagaProvisioningRoutingKey + ".dlq");
+    }
+
+    @Bean
+    public Queue dlqSagaCompletedQueue() {
+        return QueueBuilder.durable(sagaCompletedQueue + ".dlq").build();
+    }
+
+    @Bean
+    public Binding dlqSagaCompletedBinding() {
+        return BindingBuilder.bind(dlqSagaCompletedQueue()).to(dlqExchange()).with(sagaCompletedRoutingKey + ".dlq");
+    }
+
+    @Bean
     public Jackson2JsonMessageConverter messageConverter() {
         return new Jackson2JsonMessageConverter();
     }
