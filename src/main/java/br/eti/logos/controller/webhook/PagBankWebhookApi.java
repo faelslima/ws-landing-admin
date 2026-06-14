@@ -30,7 +30,7 @@ public class PagBankWebhookApi {
             @RequestHeader(value = "x-payload-signature", required = false) String payloadSignature,
             @RequestBody String payload) {
 
-        salvarDebugWebhook(headers, payload);
+//        salvarDebugWebhook(headers, payload);
 
         try {
             webhookProcessorService.processarWebhook(payloadSignature, payload);

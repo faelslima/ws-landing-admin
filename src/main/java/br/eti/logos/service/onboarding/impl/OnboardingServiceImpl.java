@@ -98,7 +98,7 @@ public class OnboardingServiceImpl implements OnboardingService {
         if (lead.getStatus() == LeadStatusEnum.NOVO || lead.getStatus() == LeadStatusEnum.CONTATADO) {
             lead.setStatus(LeadStatusEnum.QUALIFICADO);
         }
-        leadRepository.save(lead);
+        leadRepository.saveAndFlush(lead);
 
         var telefoneDigits = request.getTelefone().replaceAll("\\D", "");
 
@@ -156,7 +156,7 @@ public class OnboardingServiceImpl implements OnboardingService {
                 .dataInicio(OffsetDateTime.now())
                 .dataExpiracao(OffsetDateTime.now().plusYears(1))
                 .build();
-        licencaRepository.save(licenca);
+        licencaRepository.saveAndFlush(licenca);
 
         var assinatura = Assinatura.builder()
                 .licenca(licenca)
@@ -166,7 +166,7 @@ public class OnboardingServiceImpl implements OnboardingService {
                 .valorAnual(plano.getValorAnual())
                 .emailCliente(request.getEmail())
                 .build();
-        assinaturaRepository.save(assinatura);
+        assinaturaRepository.saveAndFlush(assinatura);
 
         boolean pagamentoAprovado = registrarPagamentoInicial(assinatura, pagbankResponse.getId(), plano.getValorAnual());
 
