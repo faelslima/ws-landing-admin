@@ -1,8 +1,10 @@
 package br.eti.logos.core.config;
 
+import br.eti.logos.service.audit.LogErroService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import feign.FeignException;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -21,6 +23,7 @@ public class GlobalExceptionHandler {
 
     private final ObjectMapper objectMapper;
     private final br.eti.logos.service.i18n.MessageTranslationService translationService;
+    private final LogErroService logErroService;
 
     @ExceptionHandler(SecurityException.class)
     public ResponseEntity<Map<String, Object>> handleSecurity(SecurityException e) {
@@ -68,7 +71,8 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(FeignException.class)
-    public ResponseEntity<Map<String, Object>> handleFeignException(FeignException e) {
+    public ResponseEntity<Map<String, Object>> handleFeignException(FeignException e, HttpServletRequest request) {
+        logErroService.registrar(e, request);
         log.error("Erro ao comunicar com PagBank: status={}", e.status());
 
         String userMessage = "Erro ao comunicar com PagBank";
@@ -140,8 +144,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, Object>> handleGeneric(Exception e) {
+    public ResponseEntity<Map<String, Object>> handleGeneric(Exception e, HttpServletRequest request) {
         log.error("Erro não tratado: {}", e.getMessage(), e);
+        logErroService.registrar(e, request);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
                 "status", 500,
                 "error", "Internal Server Error",
