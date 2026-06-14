@@ -110,13 +110,7 @@ public interface PagBankSubscriptionsFeign {
             @RequestHeader("Authorization") String token,
             @PathVariable("subscriptionId") String subscriptionId);
 
-    // Invoices (método antigo - usado pelo PagBankServiceImpl - webhooks)
-    @GetMapping("/subscriptions/{subscriptionId}/invoices")
-    ResponseEntity<List<PagBankInvoiceDto>> listarFaturas(
-            @RequestHeader("Authorization") String token,
-            @PathVariable("subscriptionId") String subscriptionId);
-
-    // Invoices (novo método - usado pelo AdminPagSeguroApi - retorna DTO completo)
+    // Invoices
     @GetMapping("/subscriptions/{subscriptionId}/invoices")
     InvoicesListDto listarFaturasAdmin(
             @RequestHeader("Authorization") String token,

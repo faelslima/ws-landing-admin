@@ -2,8 +2,6 @@ package br.eti.logos.service.pagbank;
 
 import br.eti.logos.dto.pagbank.*;
 
-import java.util.List;
-
 public interface PagBankService {
 
     // Plans
@@ -43,10 +41,7 @@ public interface PagBankService {
 
     PagBankSubscriptionResponseDto cancelarAssinaturaAdmin(String subscriptionId);
 
-    // Invoices (método antigo - usado por webhooks)
-    List<PagBankInvoiceDto> listarFaturas(String subscriptionId);
-
-    // Invoices (novo método para AdminPagSeguroApi)
+    // Invoices
     InvoicesListDto listarFaturasAdmin(String subscriptionId);
 
     // Customers

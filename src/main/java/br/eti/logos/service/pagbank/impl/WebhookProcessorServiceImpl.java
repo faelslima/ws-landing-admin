@@ -1,8 +1,10 @@
 package br.eti.logos.service.pagbank.impl;
 
 import br.eti.logos.core.util.MoneyUtil;
-import br.eti.logos.dto.pagbank.PagBankInvoiceDto;
+import br.eti.logos.dto.pagbank.InvoicesListDto;
 import br.eti.logos.entity.landing.Pagamento;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import br.eti.logos.entity.landing.WebhookEvent;
 import br.eti.logos.enums.*;
 import br.eti.logos.repository.*;
@@ -72,6 +74,11 @@ public class WebhookProcessorServiceImpl implements WebhookProcessorService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "leads", allEntries = true),
+        @CacheEvict(value = "licencas", allEntries = true),
+        @CacheEvict(value = "dashboard", allEntries = true)
+    })
     public void processarEventoAsync(String payload) {
         try {
             var json = objectMapper.readTree(payload);
@@ -113,8 +120,19 @@ public class WebhookProcessorServiceImpl implements WebhookProcessorService {
         var status = resource.path("status").asText();
 
         if ("ACTIVE".equalsIgnoreCase(status)) {
-            log.info("Subscription ativada, iniciando onboarding: {}", subscriptionId);
-            onboardingService.processarPagamentoConfirmado(subscriptionId);
+            // Verifica se a assinatura já existe (pode não existir por race condition com o checkout)
+            var assinatura = assinaturaRepository.findByPagbankSubscriptionId(subscriptionId).orElse(null);
+            if (assinatura == null) {
+                log.info("Webhook SUBSCRIPTION_INITIAL/ACTIVE para {} chegou antes do checkout salvar — onboarding já será disparado pelo checkout", subscriptionId);
+                return;
+            }
+            // Só dispara onboarding via webhook se o checkout ainda não ativou (status ainda PENDING)
+            if (assinatura.getStatus() == AssinaturaStatusEnum.PENDING || assinatura.getStatus() == AssinaturaStatusEnum.TRIAL) {
+                log.info("Subscription ativada via webhook, iniciando onboarding: {}", subscriptionId);
+                onboardingService.processarPagamentoConfirmado(subscriptionId);
+            } else {
+                log.info("Subscription {} já está com status={}, onboarding já foi disparado", subscriptionId, assinatura.getStatus());
+            }
             return;
         }
 
@@ -218,7 +236,8 @@ public class WebhookProcessorServiceImpl implements WebhookProcessorService {
             assinaturaRepository.save(assinatura);
 
             try {
-                var invoices = pagBankService.listarFaturas(subscriptionId);
+                var invoicesDto = pagBankService.listarFaturasAdmin(subscriptionId);
+                var invoices = invoicesDto != null ? invoicesDto.getInvoices() : null;
                 if (invoices != null && !invoices.isEmpty()) {
                     invoices.stream()
                         .filter(inv -> "PAID".equals(inv.getStatus()))
@@ -309,7 +328,8 @@ public class WebhookProcessorServiceImpl implements WebhookProcessorService {
             assinaturaRepository.save(assinatura);
 
             try {
-                var invoices = pagBankService.listarFaturas(subscriptionId);
+                var invoicesDto = pagBankService.listarFaturasAdmin(subscriptionId);
+                var invoices = invoicesDto != null ? invoicesDto.getInvoices() : null;
                 if (invoices != null && !invoices.isEmpty()) {
                     invoices.stream()
                         .filter(inv -> "OVERDUE".equals(inv.getStatus()) || "UNPAID".equals(inv.getStatus()))
@@ -349,7 +369,7 @@ public class WebhookProcessorServiceImpl implements WebhookProcessorService {
         log.info("Invoice estornada via webhook: {}", invoiceId);
     }
 
-    private String extrairMotivoRecusa(PagBankInvoiceDto invoice) {
+    private String extrairMotivoRecusa(InvoicesListDto.InvoiceDetail invoice) {
         if (invoice.getDeclineReason() != null && !invoice.getDeclineReason().isBlank()) {
             return invoice.getDeclineReason();
         }

@@ -39,6 +39,8 @@ public class Assinatura  implements Serializable {
 
     private String pagbankPlanId;
 
+    private String emailCliente;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private AssinaturaStatusEnum status;

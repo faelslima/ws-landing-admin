@@ -95,12 +95,6 @@ public class PagBankServiceImpl implements PagBankService {
     }
 
     @Override
-    public List<PagBankInvoiceDto> listarFaturas(String subscriptionId) {
-        var response = subscriptionsFeign.listarFaturas(bearerToken(), subscriptionId);
-        return response.getBody();
-    }
-
-    @Override
     public InvoicesListDto listarFaturasAdmin(String subscriptionId) {
         log.debug("Listando faturas da assinatura {} no PagBank", subscriptionId);
         return subscriptionsFeign.listarFaturasAdmin(bearerToken(), subscriptionId);

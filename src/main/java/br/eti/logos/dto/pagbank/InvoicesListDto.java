@@ -63,7 +63,23 @@ public class InvoicesListDto implements Serializable {
         @JsonProperty("paid_at")
         private String paidAt;
 
+        @JsonProperty("decline_reason")
+        private String declineReason;
+
+        @JsonProperty("payment_response")
+        private PaymentResponse paymentResponse;
+
         private List<Link> links;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PaymentResponse implements Serializable {
+        private String code;
+        private String message;
+        private String reference;
     }
 
     @Data

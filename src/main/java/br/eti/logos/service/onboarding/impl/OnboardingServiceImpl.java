@@ -5,7 +5,6 @@ import br.eti.logos.dto.pagbank.*;
 import br.eti.logos.dto.request.CheckoutRequestDto;
 import br.eti.logos.dto.request.LeadRequestDto;
 import br.eti.logos.dto.saga.OnboardingProvisioningEvent;
-import br.eti.logos.entity.igreja.Igreja;
 import br.eti.logos.entity.landing.*;
 import br.eti.logos.enums.*;
 import br.eti.logos.repository.*;
@@ -16,6 +15,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,7 +33,6 @@ public class OnboardingServiceImpl implements OnboardingService {
 
     private final LeadRepository leadRepository;
     private final PlanoRepository planoRepository;
-    private final IgrejaRepository igrejaRepository;
     private final LicencaRepository licencaRepository;
     private final AssinaturaRepository assinaturaRepository;
     private final PagamentoRepository pagamentoRepository;
@@ -47,6 +47,7 @@ public class OnboardingServiceImpl implements OnboardingService {
 
     @Override
     @Transactional
+    @CacheEvict(value = {"leads", "dashboard"}, allEntries = true)
     public Lead registrarLead(LeadRequestDto request) {
         log.info("Registrando lead: {}", request.getEmail());
 
@@ -68,6 +69,11 @@ public class OnboardingServiceImpl implements OnboardingService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "leads", allEntries = true),
+        @CacheEvict(value = "licencas", allEntries = true),
+        @CacheEvict(value = "dashboard", allEntries = true)
+    })
     public String iniciarCheckout(CheckoutRequestDto request) {
         log.info("Iniciando checkout para: {}", request.getEmail());
 
@@ -138,24 +144,13 @@ public class OnboardingServiceImpl implements OnboardingService {
                 .proRata(false)
                 .build();
 
-        log.debug("Payload PagBank Subscription: {}", subscriptionDto);
-
         var pagbankResponse = pagBankService.criarAssinatura(subscriptionDto);
 
-        // Criar igreja
-        var igreja = Igreja.builder()
-                .razaoSocial(request.getNomeIgreja())
-                .nomeFantasia(request.getNomeIgreja())
-                .cnpj(request.getCnpj())
-                .email(request.getEmail())
-                .telefone(request.getTelefone())
-                .ativo(false)
-                .build();
-        igrejaRepository.save(igreja);
+        // igrejaId gerado aqui, enviado na saga para ws-security criar a Igreja com o mesmo UUID
+        var igrejaId = UUID.randomUUID().toString();
 
-        // Criar licença (pendente)
         var licenca = Licenca.builder()
-                .igrejaId(igreja.getId())
+                .igrejaId(igrejaId)
                 .plano(plano)
                 .status(LicencaStatusEnum.TRIAL)
                 .dataInicio(OffsetDateTime.now())
@@ -163,35 +158,57 @@ public class OnboardingServiceImpl implements OnboardingService {
                 .build();
         licencaRepository.save(licenca);
 
-        // Criar assinatura local
         var assinatura = Assinatura.builder()
                 .licenca(licenca)
                 .pagbankSubscriptionId(pagbankResponse.getId())
                 .pagbankPlanId(plano.getPagbankPlanId())
                 .status(AssinaturaStatusEnum.PENDING)
                 .valorAnual(plano.getValorAnual())
+                .emailCliente(request.getEmail())
                 .build();
         assinaturaRepository.save(assinatura);
 
-        // Registrar pagamento inicial com status vindo da invoice do PagBank
-        registrarPagamentoInicial(assinatura, pagbankResponse.getId(), plano.getValorAnual());
+        boolean pagamentoAprovado = registrarPagamentoInicial(assinatura, pagbankResponse.getId(), plano.getValorAnual());
 
-        log.info("Checkout criado. PagBank subscription: {}", pagbankResponse.getId());
+        if (pagamentoAprovado) {
+            ativarAssinaturaEDispararOnboarding(assinatura, licenca, lead);
+        }
+
+        log.info("Checkout criado. subscription={} igrejaId={}", pagbankResponse.getId(), igrejaId);
         return pagbankResponse.getId();
     }
 
-    private void registrarPagamentoInicial(Assinatura assinatura, String subscriptionId, java.math.BigDecimal valorPlano) {
+    private void ativarAssinaturaEDispararOnboarding(Assinatura assinatura, Licenca licenca, Lead lead) {
+        assinatura.setStatus(AssinaturaStatusEnum.ACTIVE);
+        assinaturaRepository.save(assinatura);
+
+        licenca.setStatus(LicencaStatusEnum.ATIVA);
+        licencaRepository.save(licenca);
+
+        if (lead.getStatus() != LeadStatusEnum.CONVERTIDO) {
+            lead.setStatus(LeadStatusEnum.CONVERTIDO);
+            lead.setIgrejaIdConvertida(licenca.getIgrejaId());
+            lead.setDataConversao(OffsetDateTime.now());
+            leadRepository.save(lead);
+            publicarProvisionamento(licenca, lead);
+            log.info("Onboarding disparado no checkout: lead={} igrejaId={}", lead.getEmail(), licenca.getIgrejaId());
+        }
+    }
+
+    private boolean registrarPagamentoInicial(Assinatura assinatura, String subscriptionId, java.math.BigDecimal valorPlano) {
         try {
-            var invoices = pagBankService.listarFaturas(subscriptionId);
+            var invoicesDto = pagBankService.listarFaturasAdmin(subscriptionId);
+            var invoices = invoicesDto != null ? invoicesDto.getInvoices() : null;
             if (invoices == null || invoices.isEmpty()) {
                 log.warn("Nenhuma invoice encontrada logo após criação da subscription: {}", subscriptionId);
-                return;
+                return false;
             }
 
             var invoice = invoices.get(0);
 
-            if (pagamentoRepository.findByPagbankInvoiceId(invoice.getId()).isPresent()) {
-                return;
+            var existente = pagamentoRepository.findByPagbankInvoiceId(invoice.getId());
+            if (existente.isPresent()) {
+                return "PAID".equalsIgnoreCase(invoice.getStatus());
             }
 
             var statusPagamento = mapearStatusInvoice(invoice.getStatus());
@@ -213,8 +230,11 @@ public class OnboardingServiceImpl implements OnboardingService {
 
             log.info("Pagamento inicial registrado: invoice={} status={} subscription={}",
                     invoice.getId(), statusPagamento, subscriptionId);
+
+            return statusPagamento == PagamentoStatusEnum.PAID;
         } catch (Exception e) {
             log.error("Falha ao registrar pagamento inicial da subscription {}: {}", subscriptionId, e.getMessage());
+            return false;
         }
     }
 
@@ -228,7 +248,7 @@ public class OnboardingServiceImpl implements OnboardingService {
         };
     }
 
-    private String extrairMotivoRecusa(PagBankInvoiceDto invoice) {
+    private String extrairMotivoRecusa(br.eti.logos.dto.pagbank.InvoicesListDto.InvoiceDetail invoice) {
         if (invoice.getDeclineReason() != null && !invoice.getDeclineReason().isBlank()) {
             return invoice.getDeclineReason();
         }
@@ -246,6 +266,11 @@ public class OnboardingServiceImpl implements OnboardingService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "leads", allEntries = true),
+        @CacheEvict(value = "licencas", allEntries = true),
+        @CacheEvict(value = "dashboard", allEntries = true)
+    })
     public void processarPagamentoConfirmado(String pagbankSubscriptionId) {
         log.info("Processando confirmação de pagamento para subscription: {}", pagbankSubscriptionId);
 
@@ -259,46 +284,36 @@ public class OnboardingServiceImpl implements OnboardingService {
         licenca.setStatus(LicencaStatusEnum.ATIVA);
         licencaRepository.save(licenca);
 
-        var igreja = igrejaRepository.findById(licenca.getIgrejaId()).orElse(null);
-        if (igreja != null && !igreja.getAtivo()) {
-            igreja.setAtivo(true);
-            igrejaRepository.save(igreja);
-
-            publicarProvisionamento(igreja, licenca.getPlano().getNome());
-        }
-
-        if (igreja != null) {
-            leadRepository.findTopByEmailOrderByCriadoEmDesc(igreja.getEmail())
-                    .filter(l -> l.getStatus() != LeadStatusEnum.CONVERTIDO)
-                    .ifPresent(lead -> {
-                        lead.setStatus(LeadStatusEnum.CONVERTIDO);
-                        lead.setIgrejaIdConvertida(igreja.getId());
-                        lead.setDataConversao(OffsetDateTime.now());
-                        leadRepository.save(lead);
-                    });
-        }
-
-        log.info("Onboarding concluído para igreja: {}", igreja != null ? igreja.getRazaoSocial() : "N/A");
+        leadRepository.findTopByEmailOrderByCriadoEmDesc(assinatura.getEmailCliente())
+                .filter(l -> l.getStatus() != LeadStatusEnum.CONVERTIDO)
+                .ifPresent(lead -> {
+                    lead.setStatus(LeadStatusEnum.CONVERTIDO);
+                    lead.setIgrejaIdConvertida(licenca.getIgrejaId());
+                    lead.setDataConversao(OffsetDateTime.now());
+                    leadRepository.save(lead);
+                    publicarProvisionamento(licenca, lead);
+                    log.info("Onboarding concluído para lead: {} igrejaId: {}", lead.getEmail(), licenca.getIgrejaId());
+                });
     }
 
-    private void publicarProvisionamento(Igreja igreja, String planoNome) {
+    private void publicarProvisionamento(Licenca licenca, Lead lead) {
         try {
             var event = OnboardingProvisioningEvent.builder()
-                    .igrejaId(igreja.getId())
-                    .razaoSocial(igreja.getRazaoSocial())
-                    .nomeFantasia(igreja.getNomeFantasia())
-                    .cnpj(igreja.getCnpj())
-                    .email(igreja.getEmail())
-                    .telefone(igreja.getTelefone())
-                    .nomeResponsavel("Administrador")
-                    .planoNome(planoNome)
+                    .igrejaId(licenca.getIgrejaId())
+                    .razaoSocial(lead.getNomeIgreja())
+                    .nomeFantasia(lead.getNomeIgreja())
+                    .cnpj(lead.getCnpj())
+                    .email(lead.getEmail())
+                    .telefone(lead.getTelefone())
+                    .nomeResponsavel(lead.getNomeResponsavel())
+                    .planoNome(licenca.getPlano().getNome())
                     .lang("pt")
                     .build();
             var payload = OBJECT_MAPPER.writeValueAsString(event);
             rabbitTemplate.convertAndSend(exchange, sagaProvisioningRoutingKey, payload);
-            log.info("Evento de provisionamento publicado para igreja: {} ({})", igreja.getRazaoSocial(), igreja.getId());
+            log.info("Evento de provisionamento publicado: igrejaId={} email={}", licenca.getIgrejaId(), lead.getEmail());
         } catch (Exception e) {
-            log.error("Falha ao publicar evento de provisionamento para {}: {}", igreja.getRazaoSocial(), e.getMessage());
+            log.error("Falha ao publicar provisionamento para igrejaId={}: {}", licenca.getIgrejaId(), e.getMessage());
         }
     }
 }
