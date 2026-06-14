@@ -102,26 +102,9 @@ public class OnboardingServiceImpl implements OnboardingService {
 
         var telefoneDigits = request.getTelefone().replaceAll("\\D", "");
 
-        var customer = PagBankCustomerDto.builder()
-                .name(request.getNomeResponsavel())
-                .email(request.getEmail())
-                .taxId(request.getCpfResponsavel())
-                .phones(List.of(PagBankCustomerDto.PagBankPhoneDto.builder()
-                        .country("55")
-                        .area(telefoneDigits.substring(0, 2))
-                        .number(telefoneDigits.substring(2))
-                        .build()))
-                .billingInfo(List.of(PagBankCustomerDto.BillingInfo.builder()
-                        .type("CREDIT_CARD")
-                        .card(PagBankCardDto.builder()
-                                .encrypted(request.getEncryptedCard())
-                                .holder(PagBankCardDto.PagBankCardHolderDto.builder()
-                                        .name(request.getCardHolderName())
-                                        .taxId(request.getCardHolderTaxId())
-                                        .build())
-                                .build())
-                        .build()))
-                .build();
+        // Se já existe customer com este CPF no PagBank, reusa o ID existente para evitar o erro
+        // "customer cannot be created, as there is already a customer registered with the informed tax_ID"
+        var customer = resolverCustomer(request, telefoneDigits);
 
         var referenceId = "ONBOARD-" + UUID.randomUUID().toString().substring(0, 8);
 
@@ -294,6 +277,58 @@ public class OnboardingServiceImpl implements OnboardingService {
                     publicarProvisionamento(licenca, lead);
                     log.info("Onboarding concluído para lead: {} igrejaId: {}", lead.getEmail(), licenca.getIgrejaId());
                 });
+    }
+
+    private PagBankCustomerDto resolverCustomer(CheckoutRequestDto request, String telefoneDigits) {
+        try {
+            var cpfLimpo = request.getCpfResponsavel().replaceAll("\\D", "");
+            var resultado = pagBankService.listarClientes(cpfLimpo, 0, 1);
+            if (resultado != null
+                    && resultado.getCustomers() != null
+                    && !resultado.getCustomers().isEmpty()) {
+                var existente = resultado.getCustomers().get(0);
+                log.info("Customer já existe no PagBank para CPF {}: id={}", cpfLimpo, existente.getId());
+                // Passa apenas o ID — PagBank reutiliza o customer existente
+                return PagBankCustomerDto.builder()
+                        .id(existente.getId())
+                        .billingInfo(List.of(PagBankCustomerDto.BillingInfo.builder()
+                                .type("CREDIT_CARD")
+                                .card(PagBankCardDto.builder()
+                                        .encrypted(request.getEncryptedCard())
+                                        .holder(PagBankCardDto.PagBankCardHolderDto.builder()
+                                                .name(request.getCardHolderName())
+                                                .taxId(request.getCardHolderTaxId())
+                                                .build())
+                                        .build())
+                                .build()))
+                        .build();
+            }
+        } catch (Exception e) {
+            log.warn("Não foi possível verificar customer existente no PagBank (CPF {}): {}. Prosseguindo com criação.",
+                    request.getCpfResponsavel(), e.getMessage());
+        }
+
+        // Customer não existe — manda objeto completo para criação
+        return PagBankCustomerDto.builder()
+                .name(request.getNomeResponsavel())
+                .email(request.getEmail())
+                .taxId(request.getCpfResponsavel())
+                .phones(List.of(PagBankCustomerDto.PagBankPhoneDto.builder()
+                        .country("55")
+                        .area(telefoneDigits.substring(0, 2))
+                        .number(telefoneDigits.substring(2))
+                        .build()))
+                .billingInfo(List.of(PagBankCustomerDto.BillingInfo.builder()
+                        .type("CREDIT_CARD")
+                        .card(PagBankCardDto.builder()
+                                .encrypted(request.getEncryptedCard())
+                                .holder(PagBankCardDto.PagBankCardHolderDto.builder()
+                                        .name(request.getCardHolderName())
+                                        .taxId(request.getCardHolderTaxId())
+                                        .build())
+                                .build())
+                        .build()))
+                .build();
     }
 
     private void publicarProvisionamento(Licenca licenca, Lead lead) {

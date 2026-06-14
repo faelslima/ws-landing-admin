@@ -20,6 +20,7 @@ public class AssinaturaResponseDto implements Serializable {
     private String pagbankSubscriptionId;
     private String nomeIgreja;
     private String planoNome;
+    private String emailCliente;
     private BigDecimal valorAnual;
     private AssinaturaStatusEnum status;
     private String dataCriacao;       // ISO 8601
