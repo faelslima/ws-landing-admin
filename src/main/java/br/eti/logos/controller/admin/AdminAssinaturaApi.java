@@ -18,7 +18,6 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/admin/assinaturas")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('I12_GESTAO_VENDAS')")
 public class AdminAssinaturaApi {
 
     private final AssinaturaRepository assinaturaRepository;
