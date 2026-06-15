@@ -5,6 +5,7 @@ import br.eti.logos.dto.pagbank.*;
 import br.eti.logos.dto.request.CheckoutRequestDto;
 import br.eti.logos.dto.request.LeadRequestDto;
 import br.eti.logos.dto.saga.OnboardingProvisioningEvent;
+import br.eti.logos.entity.igreja.Igreja;
 import br.eti.logos.entity.landing.*;
 import br.eti.logos.enums.*;
 import br.eti.logos.repository.*;
@@ -36,6 +37,7 @@ public class OnboardingServiceImpl implements OnboardingService {
     private final LicencaRepository licencaRepository;
     private final AssinaturaRepository assinaturaRepository;
     private final PagamentoRepository pagamentoRepository;
+    private final IgrejaRepository igrejaRepository;
     private final PagBankService pagBankService;
     private final RabbitTemplate rabbitTemplate;
 
@@ -131,6 +133,18 @@ public class OnboardingServiceImpl implements OnboardingService {
 
         // igrejaId gerado aqui, enviado na saga para ws-security criar a Igreja com o mesmo UUID
         var igrejaId = UUID.randomUUID().toString();
+
+        var igreja = Igreja.builder()
+                .id(igrejaId)
+                .razaoSocial(request.getNomeIgreja())
+                .nomeFantasia(request.getNomeIgreja())
+                .cnpj(request.getCnpj())
+                .email(request.getEmail())
+                .telefone(request.getTelefone())
+                .nomeResponsavel(request.getNomeResponsavel())
+                .ativo(true)
+                .build();
+        igrejaRepository.save(igreja);
 
         var licenca = Licenca.builder()
                 .igrejaId(igrejaId)

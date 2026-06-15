@@ -20,6 +20,7 @@ public class PagamentoResponseDto implements Serializable {
     private UUID id;
     private String pagbankInvoiceId;
     private String nomeIgreja;
+    private String nomeResponsavel;
     private String planoNome;
     private BigDecimal valor;
     private BigDecimal valorEstornado;

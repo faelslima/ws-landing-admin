@@ -8,6 +8,7 @@ import br.eti.logos.entity.landing.Pagamento;
 import br.eti.logos.enums.PagamentoStatusEnum;
 import br.eti.logos.repository.AssinaturaRepository;
 import br.eti.logos.repository.IgrejaRepository;
+import br.eti.logos.repository.LeadRepository;
 import br.eti.logos.repository.PagamentoRepository;
 import br.eti.logos.service.pagamento.PagamentoService;
 import br.eti.logos.service.pagbank.PagBankService;
@@ -29,6 +30,7 @@ public class PagamentoServiceImpl implements PagamentoService {
     private final PagamentoRepository pagamentoRepository;
     private final AssinaturaRepository assinaturaRepository;
     private final IgrejaRepository igrejaRepository;
+    private final LeadRepository leadRepository;
     private final PagBankService pagBankService;
 
     @Override
@@ -123,6 +125,12 @@ public class PagamentoServiceImpl implements PagamentoService {
         var assinatura = p.getAssinatura();
         var licenca = assinatura.getLicenca();
         var igreja = igrejaRepository.findById(licenca.getIgrejaId()).orElse(null);
+        var lead = leadRepository.findTopByIgrejaIdConvertidaOrderByCriadoEmDesc(licenca.getIgrejaId()).orElse(null);
+
+        var nomeIgreja = igreja != null ? igreja.getRazaoSocial()
+                : (lead != null ? lead.getNomeIgreja() : "N/A");
+        var nomeResponsavel = igreja != null ? igreja.getNomeResponsavel()
+                : (lead != null ? lead.getNomeResponsavel() : null);
 
         var estornavel = p.getStatus() == PagamentoStatusEnum.PAID
                 && p.getValorEstornado().compareTo(p.getValor()) < 0;
@@ -130,7 +138,8 @@ public class PagamentoServiceImpl implements PagamentoService {
         return PagamentoResponseDto.builder()
                 .id(p.getId())
                 .pagbankInvoiceId(p.getPagbankInvoiceId())
-                .nomeIgreja(igreja != null ? igreja.getRazaoSocial() : "N/A")
+                .nomeIgreja(nomeIgreja)
+                .nomeResponsavel(nomeResponsavel)
                 .planoNome(licenca.getPlano().getNome())
                 .valor(p.getValor())
                 .valorEstornado(p.getValorEstornado())

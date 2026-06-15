@@ -18,6 +18,7 @@ public class LicencaResponseDto implements Serializable {
     private UUID id;
     private String igrejaId;
     private String nomeIgreja;
+    private String nomeResponsavel;
     private String planoNome;
     private LicencaStatusEnum status;
     private Integer limiteUsuarios;

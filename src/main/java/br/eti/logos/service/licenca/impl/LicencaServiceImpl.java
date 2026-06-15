@@ -5,6 +5,7 @@ import br.eti.logos.dto.response.LicencaResponseDto;
 import br.eti.logos.entity.landing.Licenca;
 import br.eti.logos.enums.AssinaturaStatusEnum;
 import br.eti.logos.enums.LicencaStatusEnum;
+import br.eti.logos.entity.landing.Lead;
 import br.eti.logos.repository.*;
 import br.eti.logos.service.licenca.LicencaService;
 import br.eti.logos.service.pagbank.PagBankService;
@@ -28,6 +29,7 @@ public class LicencaServiceImpl implements LicencaService {
     private final LicencaRepository licencaRepository;
     private final AssinaturaRepository assinaturaRepository;
     private final IgrejaRepository igrejaRepository;
+    private final LeadRepository leadRepository;
     private final PagBankService pagBankService;
 
     @Override
@@ -165,6 +167,12 @@ public class LicencaServiceImpl implements LicencaService {
         var limite = licenca.getPlano().getLimiteUsuarios();
 
         var igreja = igrejaRepository.findById(licenca.getIgrejaId()).orElse(null);
+        var lead = leadRepository.findTopByIgrejaIdConvertidaOrderByCriadoEmDesc(licenca.getIgrejaId()).orElse(null);
+
+        var nomeIgreja = igreja != null ? igreja.getRazaoSocial()
+                : (lead != null ? lead.getNomeIgreja() : "N/A");
+        var nomeResponsavel = igreja != null ? igreja.getNomeResponsavel()
+                : (lead != null ? lead.getNomeResponsavel() : null);
 
         // dataProximaCobranca vem da assinatura, não da licença
         var assinatura = assinaturaRepository.findByLicencaId(licenca.getId()).orElse(null);
@@ -173,7 +181,8 @@ public class LicencaServiceImpl implements LicencaService {
         return LicencaResponseDto.builder()
                 .id(licenca.getId())
                 .igrejaId(licenca.getIgrejaId())
-                .nomeIgreja(igreja != null ? igreja.getRazaoSocial() : "N/A")
+                .nomeIgreja(nomeIgreja)
+                .nomeResponsavel(nomeResponsavel)
                 .planoNome(licenca.getPlano().getNome())
                 .status(licenca.getStatus())
                 .limiteUsuarios(limite)

@@ -35,6 +35,8 @@ public class Igreja {
 
     private Boolean ativo;
 
+    private String nomeResponsavel;
+
     private String email;
 
     private String telefone;

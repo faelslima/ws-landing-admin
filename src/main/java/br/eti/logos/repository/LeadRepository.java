@@ -22,6 +22,8 @@ public interface LeadRepository extends JpaRepository<Lead, UUID> {
 
     Long countByStatus(LeadStatusEnum status);
 
+    Optional<Lead> findTopByIgrejaIdConvertidaOrderByCriadoEmDesc(String igrejaId);
+
     @Query("SELECT COUNT(l) FROM Lead l WHERE l.criadoEm >= :desde")
     Long countDesde(@Param("desde") OffsetDateTime desde);
 
