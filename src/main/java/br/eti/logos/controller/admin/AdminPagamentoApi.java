@@ -9,7 +9,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -23,7 +22,7 @@ public class AdminPagamentoApi {
     private final PagamentoService pagamentoService;
 
     @GetMapping
-    @PreAuthorize("hasRole('I12_GESTAO_VENDAS')")
+
     public ResponseEntity<Page<PagamentoResponseDto>> listar(
             @RequestParam(required = false) PagamentoStatusEnum status,
             Pageable pageable) {
@@ -31,34 +30,34 @@ public class AdminPagamentoApi {
     }
 
     @GetMapping("/igreja/{igrejaId}")
-    @PreAuthorize("hasRole('I12_GESTAO_VENDAS')")
+
     public ResponseEntity<Page<PagamentoResponseDto>> listarPorIgreja(
             @PathVariable UUID igrejaId, Pageable pageable) {
         return ResponseEntity.ok(pagamentoService.listarPorIgreja(igrejaId, pageable));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('I12_GESTAO_VENDAS')")
+
     public ResponseEntity<PagamentoResponseDto> buscar(@PathVariable UUID id) {
         return ResponseEntity.ok(pagamentoService.buscarPorId(id));
     }
 
     @PostMapping("/estorno")
-    @PreAuthorize("hasRole('I12_GESTAO_VENDAS')")
+
     public ResponseEntity<Void> estornar(@RequestBody @Valid RefundRequestDto request) {
         pagamentoService.estornar(request);
         return ResponseEntity.ok().build();
     }
 
     @PutMapping("/{id}/cancelar")
-    @PreAuthorize("hasRole('I12_GESTAO_VENDAS')")
+
     public ResponseEntity<Void> cancelar(@PathVariable UUID id, @RequestBody Map<String, String> body) {
         pagamentoService.cancelar(id, body.get("motivo"));
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/{id}/retentar")
-    @PreAuthorize("hasRole('I12_GESTAO_VENDAS')")
+
     public ResponseEntity<Void> retentar(@PathVariable UUID id) {
         pagamentoService.retentarCobranca(id);
         return ResponseEntity.ok().build();

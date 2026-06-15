@@ -32,6 +32,7 @@ public class PagamentoServiceImpl implements PagamentoService {
     private final PagBankService pagBankService;
 
     @Override
+    @Transactional(readOnly = true)
     public Page<PagamentoResponseDto> listar(PagamentoStatusEnum status, Pageable pageable) {
         Page<Pagamento> page;
         if (status != null) {
@@ -43,12 +44,14 @@ public class PagamentoServiceImpl implements PagamentoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Page<PagamentoResponseDto> listarPorIgreja(UUID igrejaId, Pageable pageable) {
         return pagamentoRepository.findAllByAssinaturaLicencaIgrejaId(igrejaId, pageable)
                 .map(this::toDto);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public PagamentoResponseDto buscarPorId(UUID id) {
         return toDto(findById(id));
     }
