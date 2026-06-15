@@ -47,7 +47,7 @@ public class PlanoServiceImpl implements PlanoService {
     @Override
     @Transactional
     @CacheEvict(value = "planos", allEntries = true)
-    public Plano criar(PlanoCreateRequestDto request) {
+    public PlanoResponseDto criar(PlanoCreateRequestDto request) {
         log.info("Criando plano: {}", request.getNome());
 
         var plano = Plano.builder()
@@ -62,22 +62,20 @@ public class PlanoServiceImpl implements PlanoService {
 
         plano = planoRepository.save(plano);
 
-        // Sincronizar automaticamente com PagBank
         try {
             sincronizarComPagBank(plano.getId());
             log.info("Plano {} sincronizado com PagBank", plano.getNome());
         } catch (Exception e) {
             log.error("Erro ao sincronizar plano {} com PagBank: {}", plano.getNome(), e.getMessage());
-            // Não falha a criação se PagBank estiver fora
         }
 
-        return plano;
+        return toDto(planoRepository.findById(plano.getId()).orElse(plano));
     }
 
     @Override
     @Transactional
     @CacheEvict(value = "planos", allEntries = true)
-    public Plano atualizar(UUID id, PlanoCreateRequestDto request) {
+    public PlanoResponseDto atualizar(UUID id, PlanoCreateRequestDto request) {
         log.info("Atualizando plano: {}", id);
 
         var plano = planoRepository.findById(id)
@@ -99,7 +97,6 @@ public class PlanoServiceImpl implements PlanoService {
 
         plano = planoRepository.save(plano);
 
-        // Se valor mudou, precisa criar novo plano no PagBank (PagBank não permite editar valor)
         if (valorAlterado && plano.getPagbankPlanId() != null) {
             log.warn("Valor do plano {} alterado. Criando novo plano no PagBank...", plano.getNome());
             try {
@@ -110,7 +107,7 @@ public class PlanoServiceImpl implements PlanoService {
             }
         }
 
-        return plano;
+        return toDto(planoRepository.findById(plano.getId()).orElse(plano));
     }
 
     @Override

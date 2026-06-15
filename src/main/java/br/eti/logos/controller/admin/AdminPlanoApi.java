@@ -2,7 +2,6 @@ package br.eti.logos.controller.admin;
 
 import br.eti.logos.dto.request.PlanoCreateRequestDto;
 import br.eti.logos.dto.response.PlanoResponseDto;
-import br.eti.logos.entity.landing.Plano;
 import br.eti.logos.service.plano.PlanoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,15 +28,13 @@ public class AdminPlanoApi {
     @PostMapping
     @PreAuthorize("hasRole('I12_GESTAO_VENDAS')")
     public ResponseEntity<PlanoResponseDto> criar(@RequestBody @Valid PlanoCreateRequestDto request) {
-        var plano = planoService.criar(request);
-        return ResponseEntity.ok(toPlanoDto(plano));
+        return ResponseEntity.ok(planoService.criar(request));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('I12_GESTAO_VENDAS')")
     public ResponseEntity<PlanoResponseDto> atualizar(@PathVariable UUID id, @RequestBody PlanoCreateRequestDto request) {
-        var plano = planoService.atualizar(id, request);
-        return ResponseEntity.ok(toPlanoDto(plano));
+        return ResponseEntity.ok(planoService.atualizar(id, request));
     }
 
     @PostMapping("/{id}/sincronizar-pagbank")
@@ -45,19 +42,5 @@ public class AdminPlanoApi {
     public ResponseEntity<Void> sincronizarPagBank(@PathVariable UUID id) {
         planoService.sincronizarComPagBank(id);
         return ResponseEntity.ok().build();
-    }
-
-    private PlanoResponseDto toPlanoDto(Plano p) {
-        return PlanoResponseDto.builder()
-                .id(p.getId())
-                .nome(p.getNome())
-                .descricao(p.getDescricao())
-                .tier(p.getTier())
-                .limiteUsuarios(p.getLimiteUsuarios())
-                .valorAnual(p.getValorAnual())
-                .ativo(p.getAtivo())
-                .pagbankPlanId(p.getPagbankPlanId())
-                .recursos(p.getRecursos())
-                .build();
     }
 }

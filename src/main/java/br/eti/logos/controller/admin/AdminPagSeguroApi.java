@@ -6,21 +6,15 @@ import br.eti.logos.dto.pagbank.UpdateBillingInfoRequestDto;
 import br.eti.logos.dto.pagbank.UpdateCustomerRequestDto;
 import br.eti.logos.dto.pagbank.PagBankSubscriptionResponseDto;
 import br.eti.logos.dto.pagbank.SubscriptionsListDto;
-import br.eti.logos.entity.landing.Assinatura;
 import br.eti.logos.enums.AssinaturaStatusEnum;
 import br.eti.logos.enums.LicencaStatusEnum;
-import br.eti.logos.repository.AssinaturaRepository;
-import br.eti.logos.repository.LicencaRepository;
+import br.eti.logos.service.assinatura.AssinaturaService;
 import br.eti.logos.service.pagbank.PagBankService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
-
-import java.time.OffsetDateTime;
 
 /**
  * Controller para gerenciamento direto de recursos do PagBank (Assinaturas API)
@@ -39,8 +33,7 @@ import java.time.OffsetDateTime;
 public class AdminPagSeguroApi {
 
     private final PagBankService pagBankService;
-    private final AssinaturaRepository assinaturaRepository;
-    private final LicencaRepository licencaRepository;
+    private final AssinaturaService assinaturaService;
 
     // ========================================================================
     // SUBSCRIPTIONS (Assinaturas)
@@ -103,15 +96,13 @@ public class AdminPagSeguroApi {
     }
 
     @PutMapping("/subscriptions/{subscriptionId}/suspend")
-    @Transactional
-    @CacheEvict(value = {"licencas", "dashboard"}, allEntries = true)
     public ResponseEntity<PagBankSubscriptionResponseDto> suspenderAssinatura(
             @PathVariable String subscriptionId
     ) {
         log.info("PUT /admin/pagseguro/subscriptions/{}/suspend - Suspendendo assinatura", subscriptionId);
         try {
             PagBankSubscriptionResponseDto response = pagBankService.suspenderAssinaturaAdmin(subscriptionId);
-            sincronizarAssinatura(subscriptionId, AssinaturaStatusEnum.SUSPENDED, LicencaStatusEnum.SUSPENSA, null);
+            assinaturaService.sincronizarStatus(subscriptionId, AssinaturaStatusEnum.SUSPENDED, LicencaStatusEnum.SUSPENSA, null);
             log.info("Assinatura {} suspensa com sucesso", subscriptionId);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -121,15 +112,13 @@ public class AdminPagSeguroApi {
     }
 
     @PutMapping("/subscriptions/{subscriptionId}/activate")
-    @Transactional
-    @CacheEvict(value = {"licencas", "dashboard"}, allEntries = true)
     public ResponseEntity<PagBankSubscriptionResponseDto> reativarAssinatura(
             @PathVariable String subscriptionId
     ) {
         log.info("PUT /admin/pagseguro/subscriptions/{}/activate - Reativando assinatura", subscriptionId);
         try {
             PagBankSubscriptionResponseDto response = pagBankService.reativarAssinaturaAdmin(subscriptionId);
-            sincronizarAssinatura(subscriptionId, AssinaturaStatusEnum.ACTIVE, LicencaStatusEnum.ATIVA, null);
+            assinaturaService.sincronizarStatus(subscriptionId, AssinaturaStatusEnum.ACTIVE, LicencaStatusEnum.ATIVA, null);
             log.info("Assinatura {} reativada com sucesso", subscriptionId);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -139,50 +128,19 @@ public class AdminPagSeguroApi {
     }
 
     @PutMapping("/subscriptions/{subscriptionId}/cancel")
-    @Transactional
-    @CacheEvict(value = {"licencas", "dashboard"}, allEntries = true)
     public ResponseEntity<PagBankSubscriptionResponseDto> cancelarAssinatura(
             @PathVariable String subscriptionId
     ) {
         log.warn("PUT /admin/pagseguro/subscriptions/{}/cancel - CANCELANDO ASSINATURA (IRREVERSÍVEL)", subscriptionId);
         try {
             PagBankSubscriptionResponseDto response = pagBankService.cancelarAssinaturaAdmin(subscriptionId);
-            sincronizarAssinatura(subscriptionId, AssinaturaStatusEnum.CANCELED, LicencaStatusEnum.CANCELADA, "Cancelado via painel admin");
+            assinaturaService.sincronizarStatus(subscriptionId, AssinaturaStatusEnum.CANCELED, LicencaStatusEnum.CANCELADA, "Cancelado via painel admin");
             log.info("Assinatura {} cancelada com sucesso (status: {})", subscriptionId, response.getStatus());
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             log.error("Erro ao cancelar assinatura {} no PagBank", subscriptionId, e);
             throw e;
         }
-    }
-
-    private void sincronizarAssinatura(String pagbankSubscriptionId,
-                                       AssinaturaStatusEnum statusAssinatura,
-                                       LicencaStatusEnum statusLicenca,
-                                       String motivo) {
-        assinaturaRepository.findByPagbankSubscriptionId(pagbankSubscriptionId).ifPresentOrElse(assinatura -> {
-            assinatura.setStatus(statusAssinatura);
-            if (statusAssinatura == AssinaturaStatusEnum.CANCELED) {
-                assinatura.setDataCancelamento(OffsetDateTime.now());
-                assinatura.setMotivoCancelamento(motivo);
-            }
-            assinaturaRepository.save(assinatura);
-
-            licencaRepository.findById(assinatura.getLicenca().getId()).ifPresent(licenca -> {
-                licenca.setStatus(statusLicenca);
-                if (statusLicenca == LicencaStatusEnum.CANCELADA) {
-                    licenca.setDataCancelamento(OffsetDateTime.now());
-                    licenca.setMotivoCancelamento(motivo);
-                } else if (statusLicenca == LicencaStatusEnum.SUSPENSA) {
-                    licenca.setDataSuspensao(OffsetDateTime.now());
-                } else if (statusLicenca == LicencaStatusEnum.ATIVA) {
-                    licenca.setDataSuspensao(null);
-                }
-                licencaRepository.save(licenca);
-            });
-
-            log.info("Banco sincronizado: subscription={} -> assinatura={} licenca={}", pagbankSubscriptionId, statusAssinatura, statusLicenca);
-        }, () -> log.warn("Assinatura não encontrada no banco para sincronização: {}", pagbankSubscriptionId));
     }
 
     // ========================================================================
