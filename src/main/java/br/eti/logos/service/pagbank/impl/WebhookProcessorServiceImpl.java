@@ -212,6 +212,11 @@ public class WebhookProcessorServiceImpl implements WebhookProcessorService {
         assinaturaRepository.findByPagbankSubscriptionId(subscriptionId).ifPresent(assinatura -> {
             assinatura.setStatus(AssinaturaStatusEnum.SUSPENDED);
             assinaturaRepository.save(assinatura);
+
+            var licenca = assinatura.getLicenca();
+            licenca.setStatus(LicencaStatusEnum.SUSPENSA);
+            licenca.setDataSuspensao(OffsetDateTime.now());
+            licencaRepository.save(licenca);
         });
         log.info("Subscription suspensa via webhook: {}", subscriptionId);
     }

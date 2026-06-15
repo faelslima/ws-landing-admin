@@ -56,6 +56,7 @@ public class SecurityConfig {
                 .addFilterAfter(igrejaContextFilter, WsSecurityClientFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_URLS).permitAll()
+                        .requestMatchers("/admin/**").hasRole("I12_GESTAO_VENDAS")
                         .anyRequest().authenticated());
 
         return http.build();
