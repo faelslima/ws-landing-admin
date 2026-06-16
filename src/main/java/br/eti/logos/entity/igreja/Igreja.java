@@ -3,10 +3,7 @@ package br.eti.logos.entity.igreja;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.UuidGenerator;
 import org.springframework.data.domain.Persistable;
-
-import java.util.UUID;
 
 @Entity
 @Table(name = "tb_igreja", schema = "comum")
@@ -19,8 +16,6 @@ public class Igreja implements Persistable<String> {
 
     @Id
     @Column(length = 36)
-    @UuidGenerator
-    @GeneratedValue
     private String id;
 
     @Transient
