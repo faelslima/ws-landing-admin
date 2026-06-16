@@ -1,6 +1,7 @@
 package br.eti.logos.service.onboarding.impl;
 
 import br.eti.logos.core.util.MoneyUtil;
+import br.eti.logos.core.validation.CnpjValidator;
 import br.eti.logos.dto.pagbank.*;
 import br.eti.logos.dto.request.CheckoutRequestDto;
 import br.eti.logos.dto.request.LeadRequestDto;
@@ -55,7 +56,7 @@ public class OnboardingServiceImpl implements OnboardingService {
                 .nomeResponsavel(request.getNomeResponsavel())
                 .email(request.getEmail())
                 .telefone(request.getTelefone())
-                .cnpj(request.getCnpj())
+                .cnpj(CnpjValidator.strip(request.getCnpj()))
                 .cidade(request.getCidade())
                 .estado(request.getEstado())
                 .quantidadeMembros(request.getQuantidadeMembros())
@@ -84,13 +85,14 @@ public class OnboardingServiceImpl implements OnboardingService {
         }
 
         // Upsert de lead: cria NOVO se não existe, promove para QUALIFICADO se já existe
+        var cnpjStripped = CnpjValidator.strip(request.getCnpj());
         var lead = leadRepository.findTopByEmailOrderByCriadoEmDesc(request.getEmail())
                 .orElseGet(() -> Lead.builder()
                         .nomeIgreja(request.getNomeIgreja())
                         .nomeResponsavel(request.getNomeResponsavel())
                         .email(request.getEmail())
                         .telefone(request.getTelefone())
-                        .cnpj(request.getCnpj())
+                        .cnpj(cnpjStripped)
                         .status(LeadStatusEnum.NOVO)
                         .build());
 
@@ -135,7 +137,7 @@ public class OnboardingServiceImpl implements OnboardingService {
                 .id(igrejaId)
                 .razaoSocial(request.getNomeIgreja())
                 .nomeFantasia(request.getNomeIgreja())
-                .cnpj(request.getCnpj())
+                .cnpj(cnpjStripped)
                 .email(request.getEmail())
                 .telefone(request.getTelefone())
                 .nomeResponsavel(request.getNomeResponsavel())

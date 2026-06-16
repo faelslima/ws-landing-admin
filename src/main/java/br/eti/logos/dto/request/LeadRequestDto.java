@@ -1,8 +1,8 @@
 package br.eti.logos.dto.request;
 
+import br.eti.logos.core.validation.ValidCnpj;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -27,7 +27,7 @@ public class LeadRequestDto {
     @NotBlank
     private String telefone;
 
-    @Pattern(regexp = "^[A-Z0-9]{2}\\.[A-Z0-9]{3}\\.[A-Z0-9]{3}/\\d{4}-\\d{2}$", message = "CNPJ inválido")
+    @ValidCnpj
     private String cnpj;
 
     private String cidade;
