@@ -11,3 +11,4 @@ src/main/resources/application-local.properties
 .env.local
 CLAUDE.md
 webhook-debug.md
+*.sql
