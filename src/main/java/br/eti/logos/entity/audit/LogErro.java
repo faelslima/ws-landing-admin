@@ -20,7 +20,7 @@ public class LogErro {
     @UuidGenerator
     private UUID id;
 
-    @Column(name = "controller", length = 50)
+    @Column(name = "controller")
     private String endpoint;
 
     private LocalDateTime dataHora;

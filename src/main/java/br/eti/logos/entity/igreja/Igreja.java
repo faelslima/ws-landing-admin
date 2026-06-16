@@ -1,8 +1,10 @@
 package br.eti.logos.entity.igreja;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.UuidGenerator;
+import org.springframework.data.domain.Persistable;
 
 import java.util.UUID;
 
@@ -13,13 +15,30 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Igreja {
+public class Igreja implements Persistable<String> {
 
     @Id
     @Column(length = 36)
     @UuidGenerator
     @GeneratedValue
     private String id;
+
+    @Transient
+    @JsonIgnore
+    @Builder.Default
+    private boolean isNew = true;
+
+    @Override
+    @JsonIgnore
+    public boolean isNew() {
+        return isNew;
+    }
+
+    @PostLoad
+    @PostPersist
+    void markNotNew() {
+        this.isNew = false;
+    }
 
     @Column(nullable = false)
     private String razaoSocial;

@@ -11,7 +11,6 @@ import br.eti.logos.enums.*;
 import br.eti.logos.repository.*;
 import br.eti.logos.service.pagbank.PagBankService;
 import br.eti.logos.service.onboarding.OnboardingService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -29,8 +28,6 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class OnboardingServiceImpl implements OnboardingService {
-
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final LeadRepository leadRepository;
     private final PlanoRepository planoRepository;
@@ -358,8 +355,7 @@ public class OnboardingServiceImpl implements OnboardingService {
                     .planoNome(licenca.getPlano().getNome())
                     .lang("pt")
                     .build();
-            var payload = OBJECT_MAPPER.writeValueAsString(event);
-            rabbitTemplate.convertAndSend(exchange, sagaProvisioningRoutingKey, payload);
+            rabbitTemplate.convertAndSend(exchange, sagaProvisioningRoutingKey, event);
             log.info("Evento de provisionamento publicado: igrejaId={} email={}", licenca.getIgrejaId(), lead.getEmail());
         } catch (Exception e) {
             log.error("Falha ao publicar provisionamento para igrejaId={}: {}", licenca.getIgrejaId(), e.getMessage());

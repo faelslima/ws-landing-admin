@@ -25,9 +25,11 @@ public class LogErroServiceImpl implements LogErroService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void registrar(Exception e, HttpServletRequest request) {
         try {
+            String uri = request != null ? request.getRequestURI() : "unknown";
+            String method = request != null ? request.getMethod() : "unknown";
             logErroRepository.save(LogErro.builder()
-                    .endpoint(request != null ? request.getRequestURI() : "unknown")
-                    .httpMethod(request != null ? request.getMethod() : "unknown")
+                    .endpoint(uri.length() > 255 ? uri.substring(0, 255) : uri)
+                    .httpMethod(method.length() > 10 ? method.substring(0, 10) : method)
                     .dataHora(LocalDateTime.now())
                     .stackTrace(toStackTrace(e))
                     .build());

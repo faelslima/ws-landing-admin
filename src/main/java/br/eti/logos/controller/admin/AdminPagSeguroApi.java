@@ -102,7 +102,7 @@ public class AdminPagSeguroApi {
             PagBankSubscriptionResponseDto response = pagBankService.suspenderAssinaturaAdmin(subscriptionId);
             assinaturaService.sincronizarStatus(subscriptionId, AssinaturaStatusEnum.SUSPENDED, LicencaStatusEnum.SUSPENSA, null);
             log.info("Assinatura {} suspensa com sucesso", subscriptionId);
-            return ResponseEntity.ok(response);
+            return response != null ? ResponseEntity.ok(response) : ResponseEntity.noContent().build();
         } catch (Exception e) {
             log.error("Erro ao suspender assinatura {} no PagBank", subscriptionId, e);
             throw e;
@@ -118,7 +118,7 @@ public class AdminPagSeguroApi {
             PagBankSubscriptionResponseDto response = pagBankService.reativarAssinaturaAdmin(subscriptionId);
             assinaturaService.sincronizarStatus(subscriptionId, AssinaturaStatusEnum.ACTIVE, LicencaStatusEnum.ATIVA, null);
             log.info("Assinatura {} reativada com sucesso", subscriptionId);
-            return ResponseEntity.ok(response);
+            return response != null ? ResponseEntity.ok(response) : ResponseEntity.noContent().build();
         } catch (Exception e) {
             log.error("Erro ao reativar assinatura {} no PagBank", subscriptionId, e);
             throw e;
@@ -133,8 +133,8 @@ public class AdminPagSeguroApi {
         try {
             PagBankSubscriptionResponseDto response = pagBankService.cancelarAssinaturaAdmin(subscriptionId);
             assinaturaService.sincronizarStatus(subscriptionId, AssinaturaStatusEnum.CANCELED, LicencaStatusEnum.CANCELADA, "Cancelado via painel admin");
-            log.info("Assinatura {} cancelada com sucesso (status: {})", subscriptionId, response.getStatus());
-            return ResponseEntity.ok(response);
+            log.info("Assinatura {} cancelada com sucesso", subscriptionId);
+            return response != null ? ResponseEntity.ok(response) : ResponseEntity.noContent().build();
         } catch (Exception e) {
             log.error("Erro ao cancelar assinatura {} no PagBank", subscriptionId, e);
             throw e;
