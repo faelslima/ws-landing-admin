@@ -46,6 +46,18 @@ public class RabbitMQConfig {
     @Value("${rabbitmq.landing.saga.completed.routing.key}")
     private String sagaCompletedRoutingKey;
 
+    @Value("${rabbitmq.landing.saga.license.suspension.queue}")
+    private String sagaLicenseSuspensionQueue;
+
+    @Value("${rabbitmq.landing.saga.license.suspension.routing.key}")
+    private String sagaLicenseSuspensionRoutingKey;
+
+    @Value("${rabbitmq.landing.saga.license.reactivation.queue}")
+    private String sagaLicenseReactivationQueue;
+
+    @Value("${rabbitmq.landing.saga.license.reactivation.routing.key}")
+    private String sagaLicenseReactivationRoutingKey;
+
     @Bean
     public DirectExchange landingExchange() {
         return new DirectExchange(exchange);
@@ -112,6 +124,34 @@ public class RabbitMQConfig {
         return BindingBuilder.bind(sagaCompletedQueue()).to(landingExchange()).with(sagaCompletedRoutingKey);
     }
 
+    // Saga: license.suspension (landing → security)
+    @Bean
+    public Queue sagaLicenseSuspensionQueue() {
+        return QueueBuilder.durable(sagaLicenseSuspensionQueue)
+                .withArgument("x-dead-letter-exchange", exchange + ".dlq")
+                .withArgument("x-dead-letter-routing-key", sagaLicenseSuspensionRoutingKey + ".dlq")
+                .build();
+    }
+
+    @Bean
+    public Binding sagaLicenseSuspensionBinding() {
+        return BindingBuilder.bind(sagaLicenseSuspensionQueue()).to(landingExchange()).with(sagaLicenseSuspensionRoutingKey);
+    }
+
+    // Saga: license.reactivation (landing → security)
+    @Bean
+    public Queue sagaLicenseReactivationQueue() {
+        return QueueBuilder.durable(sagaLicenseReactivationQueue)
+                .withArgument("x-dead-letter-exchange", exchange + ".dlq")
+                .withArgument("x-dead-letter-routing-key", sagaLicenseReactivationRoutingKey + ".dlq")
+                .build();
+    }
+
+    @Bean
+    public Binding sagaLicenseReactivationBinding() {
+        return BindingBuilder.bind(sagaLicenseReactivationQueue()).to(landingExchange()).with(sagaLicenseReactivationRoutingKey);
+    }
+
     // DLQ
     @Bean
     public DirectExchange dlqExchange() {
@@ -146,6 +186,26 @@ public class RabbitMQConfig {
     @Bean
     public Binding dlqSagaCompletedBinding() {
         return BindingBuilder.bind(dlqSagaCompletedQueue()).to(dlqExchange()).with(sagaCompletedRoutingKey + ".dlq");
+    }
+
+    @Bean
+    public Queue dlqSagaLicenseSuspensionQueue() {
+        return QueueBuilder.durable(sagaLicenseSuspensionQueue + ".dlq").build();
+    }
+
+    @Bean
+    public Binding dlqSagaLicenseSuspensionBinding() {
+        return BindingBuilder.bind(dlqSagaLicenseSuspensionQueue()).to(dlqExchange()).with(sagaLicenseSuspensionRoutingKey + ".dlq");
+    }
+
+    @Bean
+    public Queue dlqSagaLicenseReactivationQueue() {
+        return QueueBuilder.durable(sagaLicenseReactivationQueue + ".dlq").build();
+    }
+
+    @Bean
+    public Binding dlqSagaLicenseReactivationBinding() {
+        return BindingBuilder.bind(dlqSagaLicenseReactivationQueue()).to(dlqExchange()).with(sagaLicenseReactivationRoutingKey + ".dlq");
     }
 
     @Bean

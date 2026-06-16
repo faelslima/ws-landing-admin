@@ -2,12 +2,15 @@ package br.eti.logos.service.pagbank.impl;
 
 import br.eti.logos.core.util.MoneyUtil;
 import br.eti.logos.dto.pagbank.InvoicesListDto;
+import br.eti.logos.dto.saga.LicenseSuspensionEvent;
 import br.eti.logos.entity.landing.Pagamento;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
 import br.eti.logos.entity.landing.WebhookEvent;
 import br.eti.logos.enums.*;
 import br.eti.logos.repository.*;
+import br.eti.logos.service.email.EmailService;
+import br.eti.logos.service.onboarding.CheckoutRetryService;
 import br.eti.logos.service.onboarding.OnboardingService;
 import br.eti.logos.service.pagbank.WebhookProcessorService;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -31,7 +34,10 @@ public class WebhookProcessorServiceImpl implements WebhookProcessorService {
     private final AssinaturaRepository assinaturaRepository;
     private final LicencaRepository licencaRepository;
     private final PagamentoRepository pagamentoRepository;
+    private final LeadRepository leadRepository;
     private final OnboardingService onboardingService;
+    private final CheckoutRetryService checkoutRetryService;
+    private final EmailService emailService;
     private final RabbitTemplate rabbitTemplate;
     private final ObjectMapper objectMapper;
     private final br.eti.logos.service.pagbank.PagBankService pagBankService;
@@ -41,6 +47,12 @@ public class WebhookProcessorServiceImpl implements WebhookProcessorService {
 
     @Value("${rabbitmq.landing.subscription.webhook.routing.key}")
     private String webhookRoutingKey;
+
+    @Value("${rabbitmq.landing.saga.license.suspension.routing.key}")
+    private String sagaLicenseSuspensionRoutingKey;
+
+    @Value("${app.landing.url:https://i12.logos.br}")
+    private String landingUrl;
 
     @Override
     @Transactional
@@ -138,9 +150,23 @@ public class WebhookProcessorServiceImpl implements WebhookProcessorService {
 
         // Pagamento negado no checkout: atualiza o registro usando current_invoice embutido no evento
         log.info("Subscription {} com status={} — atualizando pagamento via current_invoice", subscriptionId, status);
+
+        // Captura status antes de persistir para decidir notificação
+        var assinatura = assinaturaRepository.findByPagbankSubscriptionId(subscriptionId).orElse(null);
+        var eraFalhaPagamentoInicial = assinatura != null
+                && "OVERDUE".equalsIgnoreCase(status)
+                && (assinatura.getStatus() == AssinaturaStatusEnum.PENDING
+                        || assinatura.getStatus() == AssinaturaStatusEnum.TRIAL);
+
         var currentInvoice = resource.path("current_invoice");
         if (!currentInvoice.isMissingNode()) {
             atualizarPagamentoDaInvoiceEmbutida(subscriptionId, currentInvoice);
+        }
+
+        if (eraFalhaPagamentoInicial) {
+            // Recarrega para ter a entidade com o estado persistido (status já OVERDUE)
+            assinaturaRepository.findByPagbankSubscriptionId(subscriptionId)
+                    .ifPresent(this::notificarFalhaPagamentoInicial);
         }
     }
 
@@ -187,7 +213,15 @@ public class WebhookProcessorServiceImpl implements WebhookProcessorService {
         }
 
         pagamentoRepository.save(pagamento);
-        log.info("Pagamento atualizado via current_invoice embutida: invoice={} status={}", invoiceId, pagamento.getStatus());
+
+        // Atualiza status da assinatura conforme invoice
+        if (!"PAID".equalsIgnoreCase(invoiceStatus) && assinatura.getStatus() == AssinaturaStatusEnum.PENDING) {
+            assinatura.setStatus(AssinaturaStatusEnum.OVERDUE);
+            assinaturaRepository.save(assinatura);
+        }
+
+        log.info("Pagamento atualizado via current_invoice embutida: invoice={} invoiceStatus={} subscriptionStatus={}",
+                invoiceId, invoiceStatus, assinatura.getStatus());
     }
 
     private void processarSubscriptionCanceled(JsonNode json) {
@@ -329,6 +363,7 @@ public class WebhookProcessorServiceImpl implements WebhookProcessorService {
         var subscriptionId = resource.path("id").asText();
 
         assinaturaRepository.findByPagbankSubscriptionId(subscriptionId).ifPresent(assinatura -> {
+            var statusAnterior = assinatura.getStatus();
             assinatura.setStatus(AssinaturaStatusEnum.OVERDUE);
             assinaturaRepository.save(assinatura);
 
@@ -359,19 +394,111 @@ public class WebhookProcessorServiceImpl implements WebhookProcessorService {
             } catch (Exception e) {
                 log.error("Erro ao buscar invoices da subscription {}: {}", subscriptionId, e.getMessage());
             }
+
+            // Notifica o lead apenas para falha no pagamento inicial (assinatura ainda PENDING/TRIAL)
+            // Renovações anuais com falha são tratadas separadamente (TODO: fluxo de dunning)
+            if (statusAnterior == AssinaturaStatusEnum.PENDING || statusAnterior == AssinaturaStatusEnum.TRIAL) {
+                notificarFalhaPagamentoInicial(assinatura);
+            }
         });
+    }
+
+    private void notificarFalhaPagamentoInicial(br.eti.logos.entity.landing.Assinatura assinatura) {
+        try {
+            var lead = leadRepository.findTopByEmailOrderByCriadoEmDesc(assinatura.getEmailCliente()).orElse(null);
+            if (lead == null) {
+                log.warn("Lead não encontrado para notificação de falha: {}", assinatura.getEmailCliente());
+                return;
+            }
+
+            var token = checkoutRetryService.gerarTokenParaAssinatura(assinatura);
+            var retryUrl = landingUrl + "/#/retry/" + token;
+            var planoNome = assinatura.getLicenca().getPlano().getNome();
+            // TODO: persistir lang no Lead para enviar email no idioma do usuário
+            var lang = "pt";
+
+            emailService.enviarFalhaPagamento(
+                assinatura.getEmailCliente(),
+                lead.getNomeResponsavel(),
+                planoNome,
+                retryUrl,
+                lang
+            );
+            log.info("Email de falha de pagamento enviado: subscription={} email={}", assinatura.getId(), assinatura.getEmailCliente());
+        } catch (Exception e) {
+            log.error("Falha ao enviar email de retry para subscription={}: {}", assinatura.getId(), e.getMessage());
+        }
     }
 
     private void processarInvoiceRefunded(JsonNode json) {
         var resource = json.has("resource") ? json.path("resource") : json;
         var invoiceId = resource.path("id").asText();
+
         pagamentoRepository.findByPagbankInvoiceId(invoiceId).ifPresent(pagamento -> {
             pagamento.setStatus(PagamentoStatusEnum.REFUNDED);
             pagamento.setDataEstorno(OffsetDateTime.now());
             pagamento.setValorEstornado(pagamento.getValor());
             pagamentoRepository.save(pagamento);
+
+            var assinatura = pagamento.getAssinatura();
+            if (assinatura == null) {
+                log.warn("Pagamento {} sem assinatura associada no estorno", pagamento.getId());
+                return;
+            }
+
+            // Cancela assinatura e licença
+            assinatura.setStatus(AssinaturaStatusEnum.CANCELED);
+            assinatura.setDataCancelamento(OffsetDateTime.now());
+            assinatura.setMotivoCancelamento("Estorno/chargeback solicitado pelo titular do cartão");
+            assinaturaRepository.save(assinatura);
+
+            var licenca = assinatura.getLicenca();
+            if (licenca != null) {
+                licenca.setStatus(LicencaStatusEnum.CANCELADA);
+                licenca.setDataCancelamento(OffsetDateTime.now());
+                licenca.setMotivoCancelamento("Estorno/chargeback solicitado pelo titular do cartão");
+                licencaRepository.save(licenca);
+
+                notificarEstornoEPublicarSuspensao(assinatura, licenca);
+            }
         });
-        log.info("Invoice estornada via webhook: {}", invoiceId);
+        log.info("Invoice estornada (chargeback) processada: {}", invoiceId);
+    }
+
+    private void notificarEstornoEPublicarSuspensao(br.eti.logos.entity.landing.Assinatura assinatura,
+                                                     br.eti.logos.entity.landing.Licenca licenca) {
+        try {
+            var lead = leadRepository.findTopByEmailOrderByCriadoEmDesc(assinatura.getEmailCliente()).orElse(null);
+            if (lead == null) {
+                log.warn("Lead não encontrado para notificação de estorno: {}", assinatura.getEmailCliente());
+                return;
+            }
+
+            var token = checkoutRetryService.gerarTokenParaAssinatura(assinatura);
+            var retryUrl = landingUrl + "/#/retry/" + token;
+            var planoNome = licenca.getPlano() != null ? licenca.getPlano().getNome() : "seu plano";
+            var lang = "pt"; // TODO: persistir lang no Lead
+
+            emailService.enviarCancelamentoEstorno(
+                    assinatura.getEmailCliente(),
+                    lead.getNomeResponsavel(),
+                    planoNome,
+                    retryUrl,
+                    lang
+            );
+
+            var suspensionEvent = LicenseSuspensionEvent.builder()
+                    .igrejaId(licenca.getIgrejaId())
+                    .assinaturaId(assinatura.getId().toString())
+                    .motivo("Chargeback/estorno")
+                    .retryUrl(retryUrl)
+                    .build();
+            rabbitTemplate.convertAndSend(exchange, sagaLicenseSuspensionRoutingKey, suspensionEvent);
+
+            log.info("Estorno processado: email enviado e suspensão publicada para igrejaId={}", licenca.getIgrejaId());
+        } catch (Exception e) {
+            log.error("Falha ao processar notificação de estorno para assinatura={}: {}", assinatura.getId(), e.getMessage());
+        }
     }
 
     private String extrairMotivoRecusa(InvoicesListDto.InvoiceDetail invoice) {

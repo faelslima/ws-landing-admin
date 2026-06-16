@@ -346,6 +346,7 @@ public class OnboardingServiceImpl implements OnboardingService {
 
     private void publicarProvisionamento(Licenca licenca, Lead lead) {
         try {
+            var plano = licenca.getPlano();
             var event = OnboardingProvisioningEvent.builder()
                     .igrejaId(licenca.getIgrejaId())
                     .razaoSocial(lead.getNomeIgreja())
@@ -354,7 +355,9 @@ public class OnboardingServiceImpl implements OnboardingService {
                     .email(lead.getEmail())
                     .telefone(lead.getTelefone())
                     .nomeResponsavel(lead.getNomeResponsavel())
-                    .planoNome(licenca.getPlano().getNome())
+                    .planoNome(plano != null ? plano.getNome() : null)
+                    .licencaId(licenca.getId() != null ? licenca.getId().toString() : null)
+                    .limiteUsuarios(plano != null ? plano.getLimiteUsuarios() : null)
                     .lang("pt")
                     .build();
             rabbitTemplate.convertAndSend(exchange, sagaProvisioningRoutingKey, event);

@@ -11,17 +11,10 @@ import java.io.Serializable;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class OnboardingProvisioningEvent implements Serializable {
+public class LicenseReactivationEvent implements Serializable {
 
     private String igrejaId;
-    private String razaoSocial;
-    private String nomeFantasia;
-    private String cnpj;
-    private String email;
-    private String telefone;
-    private String nomeResponsavel;
-    private String planoNome;
-    private String lang;
     private String licencaId;
     private Integer limiteUsuarios;
+    private String planoNome;
 }

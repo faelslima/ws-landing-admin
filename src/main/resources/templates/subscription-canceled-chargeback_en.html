@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Subscription canceled</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f5;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background-color:#F97316;height:6px;"></td>
+          </tr>
+          <tr>
+            <td style="padding:40px 40px 32px;">
+              <p style="font-size:36px;margin:0 0 16px;">⚠️</p>
+              <h1 style="font-size:22px;color:#111827;margin:0 0 8px;">Hello, :nomeResponsavel</h1>
+              <p style="font-size:15px;color:#6b7280;margin:0 0 24px;">
+                We identified a <strong>chargeback</strong> related to your <strong>:planoNome</strong> plan subscription.
+                As a result, your subscription was canceled and access to the system has been temporarily suspended.
+              </p>
+              <div style="background-color:#fff7ed;border-left:4px solid #F97316;border-radius:4px;padding:16px 20px;margin-bottom:24px;">
+                <p style="margin:0;font-size:14px;color:#92400e;">
+                  <strong>What happened?</strong><br/>
+                  A chargeback was filed with your card issuer. If this was a mistake,
+                  you can reactivate your subscription at any time using the link below.
+                </p>
+              </div>
+              <p style="font-size:15px;color:#374151;margin:0 0 24px;">
+                If you'd like to continue using i12, click the button below to restart your subscription.
+                You may keep the same plan or choose a different one.
+              </p>
+              <table cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
+                <tr>
+                  <td style="background-color:#00B4D8;border-radius:6px;">
+                    <a href=":retryUrl"
+                       style="display:inline-block;padding:14px 32px;font-size:15px;color:#ffffff;text-decoration:none;font-weight:bold;">
+                      Reactivate my subscription
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="font-size:12px;color:#9ca3af;text-align:center;margin:0 0 8px;">
+                Or paste this link in your browser:
+              </p>
+              <p style="font-size:11px;color:#9ca3af;text-align:center;word-break:break-all;margin:0;">
+                :retryUrl
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color:#f9fafb;padding:20px 40px;text-align:center;border-top:1px solid #e5e7eb;">
+              <p style="font-size:12px;color:#9ca3af;margin:0;">
+                This email was sent automatically by the i12 platform.<br/>
+                If you have any questions, please contact our support team.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

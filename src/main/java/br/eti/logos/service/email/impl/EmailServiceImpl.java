@@ -35,6 +35,24 @@ public class EmailServiceImpl implements EmailService {
             "es", "Bienvenido a i12! Tu iglesia está lista"
     );
 
+    private static final Map<String, String> SUBJECT_FALHA_MAP = Map.of(
+            "pt", "i12 — Problema com o pagamento. Tente novamente",
+            "en", "i12 — Payment issue. Please try again",
+            "es", "i12 — Problema con el pago. Inténtalo de nuevo"
+    );
+
+    private static final Map<String, String> SUBJECT_ESTORNO_MAP = Map.of(
+            "pt", "i12 — Sua assinatura foi cancelada por estorno",
+            "en", "i12 — Your subscription was canceled due to chargeback",
+            "es", "i12 — Tu suscripción fue cancelada por contracargo"
+    );
+
+    private static final Map<String, String> SUBJECT_REATIVACAO_MAP = Map.of(
+            "pt", "i12 — Sua assinatura foi reativada com sucesso!",
+            "en", "i12 — Your subscription has been reactivated!",
+            "es", "i12 — ¡Tu suscripción ha sido reactivada!"
+    );
+
     @Override
     public void send(String to, String subject, String htmlContent) {
         if (apiKey == null || apiKey.isBlank()) {
@@ -81,6 +99,65 @@ public class EmailServiceImpl implements EmailService {
             send(to, subject, html);
         } catch (IOException e) {
             log.error("Erro ao carregar template de boas-vindas ({}): {}", lang, e.getMessage());
+        }
+    }
+
+    @Override
+    public void enviarFalhaPagamento(String to, String nomeResponsavel, String planoNome, String retryUrl, String lang) {
+        if (lang == null || lang.isBlank()) lang = "pt";
+
+        var templatePath = resolveTemplatePath("payment-failed", lang);
+        try {
+            var resource = new ClassPathResource(templatePath);
+            var html = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+
+            html = html.replace(":nomeResponsavel", nomeResponsavel)
+                    .replace(":planoNome", planoNome)
+                    .replace(":retryUrl", retryUrl);
+
+            var subject = SUBJECT_FALHA_MAP.getOrDefault(lang, SUBJECT_FALHA_MAP.get("pt"));
+            send(to, subject, html);
+        } catch (IOException e) {
+            log.error("Erro ao carregar template de falha de pagamento ({}): {}", lang, e.getMessage());
+        }
+    }
+
+    @Override
+    public void enviarCancelamentoEstorno(String to, String nomeResponsavel, String planoNome, String retryUrl, String lang) {
+        if (lang == null || lang.isBlank()) lang = "pt";
+
+        var templatePath = resolveTemplatePath("subscription-canceled-chargeback", lang);
+        try {
+            var resource = new ClassPathResource(templatePath);
+            var html = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+
+            html = html.replace(":nomeResponsavel", nomeResponsavel)
+                    .replace(":planoNome", planoNome)
+                    .replace(":retryUrl", retryUrl);
+
+            var subject = SUBJECT_ESTORNO_MAP.getOrDefault(lang, SUBJECT_ESTORNO_MAP.get("pt"));
+            send(to, subject, html);
+        } catch (IOException e) {
+            log.error("Erro ao carregar template de cancelamento por estorno ({}): {}", lang, e.getMessage());
+        }
+    }
+
+    @Override
+    public void enviarReativacao(String to, String nomeResponsavel, String planoNome, String lang) {
+        if (lang == null || lang.isBlank()) lang = "pt";
+
+        var templatePath = resolveTemplatePath("subscription-reactivated", lang);
+        try {
+            var resource = new ClassPathResource(templatePath);
+            var html = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+
+            html = html.replace(":nomeResponsavel", nomeResponsavel)
+                    .replace(":planoNome", planoNome);
+
+            var subject = SUBJECT_REATIVACAO_MAP.getOrDefault(lang, SUBJECT_REATIVACAO_MAP.get("pt"));
+            send(to, subject, html);
+        } catch (IOException e) {
+            log.error("Erro ao carregar template de reativação ({}): {}", lang, e.getMessage());
         }
     }
 
