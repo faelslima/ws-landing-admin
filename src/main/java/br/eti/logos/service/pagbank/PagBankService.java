@@ -53,7 +53,7 @@ public interface PagBankService {
 
     void atualizarBillingInfo(String customerId, java.util.List<UpdateBillingInfoRequestDto> billingInfo);
 
-    void retentarFatura(String invoiceId);
+    void retentarFatura(String subscriptionId, String invoiceId);
 
     // Orders
     void cancelarCobranca(String chargeId, Integer valorCentavos);
