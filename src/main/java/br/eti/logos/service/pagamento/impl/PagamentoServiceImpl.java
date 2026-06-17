@@ -105,6 +105,7 @@ public class PagamentoServiceImpl implements PagamentoService {
     }
 
     @Override
+    @Transactional
     public void retentarCobranca(UUID pagamentoId) {
         var pagamento = findById(pagamentoId);
 
