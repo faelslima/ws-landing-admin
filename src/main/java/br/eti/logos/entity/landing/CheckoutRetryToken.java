@@ -32,7 +32,7 @@ public class CheckoutRetryToken {
     private String token;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "assinatura_id", nullable = false)
+    @JoinColumn(name = "assinatura_id", nullable = false, foreignKey = @ForeignKey(name = "fk_ass_check_retry_id"))
     private Assinatura assinatura;
 
     @Column(name = "usado", nullable = false)

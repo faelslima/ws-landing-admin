@@ -1,15 +1,14 @@
 package br.eti.logos.service.email.impl;
 
 import br.eti.logos.service.email.EmailService;
-import com.sendgrid.Method;
-import com.sendgrid.Request;
-import com.sendgrid.SendGrid;
-import com.sendgrid.helpers.mail.Mail;
-import com.sendgrid.helpers.mail.objects.Content;
-import com.sendgrid.helpers.mail.objects.Email;
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -18,15 +17,15 @@ import java.util.Map;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class EmailServiceImpl implements EmailService {
 
-    @Value("${sendgrid.api.key:}")
-    private String apiKey;
+    private final JavaMailSender mailSender;
 
-    @Value("${sendgrid.from}")
+    @Value("${email.from}")
     private String fromEmail;
 
-    @Value("${sendgrid.from.name}")
+    @Value("${email.from.name}")
     private String fromName;
 
     private static final Map<String, String> SUBJECT_MAP = Map.of(
@@ -55,30 +54,16 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public void send(String to, String subject, String htmlContent) {
-        if (apiKey == null || apiKey.isBlank()) {
-            log.warn("SendGrid API key não configurada. Email não enviado para: {}", maskEmail(to));
-            return;
-        }
-
         try {
-            var from = new Email(fromEmail, fromName);
-            var toEmail = new Email(to);
-            var content = new Content("text/html", htmlContent);
-            var mail = new Mail(from, subject, toEmail, content);
-
-            var sg = new SendGrid(apiKey);
-            var request = new Request();
-            request.setMethod(Method.POST);
-            request.setEndpoint("mail/send");
-            request.setBody(mail.build());
-
-            var response = sg.api(request);
-            if (response.getStatusCode() >= 200 && response.getStatusCode() < 300) {
-                log.info("Email enviado com sucesso para: {}", maskEmail(to));
-            } else {
-                log.error("Falha ao enviar email. Status: {} Body: {}", response.getStatusCode(), response.getBody());
-            }
-        } catch (IOException e) {
+            MimeMessage message = mailSender.createMimeMessage();
+            var helper = new MimeMessageHelper(message, false, StandardCharsets.UTF_8.name());
+            helper.setFrom(fromEmail, fromName);
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(htmlContent, true);
+            mailSender.send(message);
+            log.info("Email enviado com sucesso para: {}", maskEmail(to));
+        } catch (MessagingException | java.io.UnsupportedEncodingException e) {
             log.error("Erro ao enviar email para {}: {}", maskEmail(to), e.getMessage());
         }
     }

@@ -15,7 +15,6 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Map;
 
 @Slf4j
 @Component
@@ -35,6 +34,9 @@ public class RabbitMQConsumer {
     @Value("${rabbitmq.landing.subscription.webhook.routing.key}")
     private String webhookRoutingKey;
 
+    @Value("${rabbitmq.landing.saga.completed.routing.key}")
+    private String sagaCompletedRoutingKey;
+
     @RabbitListener(queues = "${rabbitmq.landing.subscription.webhook.queue}", ackMode = "MANUAL")
     public void processarWebhookMessage(Message message, Channel channel) throws IOException {
         try {
@@ -43,12 +45,12 @@ public class RabbitMQConsumer {
             channel.basicAck(message.getMessageProperties().getDeliveryTag(), false);
         } catch (Exception e) {
             log.error("Erro ao processar mensagem webhook: {}", e.getMessage());
-            handleRetry(message, channel);
+            handleRetry(message, channel, webhookRoutingKey);
         }
     }
 
-    @RabbitListener(queues = "${rabbitmq.landing.saga.completed.queue}")
-    public void processarOnboardingCompleted(Message message) {
+    @RabbitListener(queues = "${rabbitmq.landing.saga.completed.queue}", ackMode = "MANUAL")
+    public void processarOnboardingCompleted(Message message, Channel channel) throws IOException {
         try {
             var payload = new String(message.getBody(), StandardCharsets.UTF_8);
             var event = OBJECT_MAPPER.readValue(payload, OnboardingCompletedEvent.class);
@@ -60,12 +62,14 @@ public class RabbitMQConsumer {
                     event.getLang() != null ? event.getLang() : "pt"
             );
             log.info("E-mail de boas-vindas enviado para: {}", event.getEmail());
+            channel.basicAck(message.getMessageProperties().getDeliveryTag(), false);
         } catch (Exception e) {
-            log.error("Falha ao processar onboarding.completed: {}", e.getMessage());
+            log.error("Erro ao processar onboarding.completed: {}", e.getMessage());
+            handleRetry(message, channel, sagaCompletedRoutingKey);
         }
     }
 
-    private void handleRetry(Message message, Channel channel) throws IOException {
+    private void handleRetry(Message message, Channel channel, String routingKey) throws IOException {
         var headers = message.getMessageProperties().getHeaders();
         var retries = headers.containsKey("x-retries")
                 ? (int) headers.get("x-retries")
@@ -73,12 +77,12 @@ public class RabbitMQConsumer {
 
         if (retries < MAX_RETRIES) {
             message.getMessageProperties().setHeader("x-retries", retries + 1);
-            rabbitTemplate.convertAndSend(exchange, webhookRoutingKey, message);
+            rabbitTemplate.convertAndSend(exchange, routingKey, message);
             channel.basicAck(message.getMessageProperties().getDeliveryTag(), false);
-            log.warn("Retry {}/{} para mensagem", retries + 1, MAX_RETRIES);
+            log.warn("Retry {}/{} para mensagem (routing key: {})", retries + 1, MAX_RETRIES, routingKey);
         } else {
             channel.basicReject(message.getMessageProperties().getDeliveryTag(), false);
-            log.error("Mensagem enviada para DLQ após {} tentativas", MAX_RETRIES);
+            log.error("Mensagem enviada para DLQ após {} tentativas (routing key: {})", MAX_RETRIES, routingKey);
         }
     }
 }
