@@ -240,6 +240,14 @@ public class WebhookProcessorServiceImpl implements WebhookProcessorService {
             licenca.setStatus(LicencaStatusEnum.CANCELADA);
             licenca.setDataCancelamento(OffsetDateTime.now());
             licencaRepository.save(licenca);
+
+            var suspensionEvent = LicenseSuspensionEvent.builder()
+                    .igrejaId(licenca.getIgrejaId())
+                    .assinaturaId(assinatura.getId().toString())
+                    .motivo("Assinatura cancelada no PagBank")
+                    .build();
+            rabbitTemplate.convertAndSend(exchange, sagaLicenseSuspensionRoutingKey, suspensionEvent);
+            log.info("Suspensão publicada após cancelamento: igrejaId={}", licenca.getIgrejaId());
         });
         log.info("Subscription cancelada via webhook: {}", subscriptionId);
     }
@@ -255,6 +263,14 @@ public class WebhookProcessorServiceImpl implements WebhookProcessorService {
             licenca.setStatus(LicencaStatusEnum.SUSPENSA);
             licenca.setDataSuspensao(OffsetDateTime.now());
             licencaRepository.save(licenca);
+
+            var suspensionEvent = LicenseSuspensionEvent.builder()
+                    .igrejaId(licenca.getIgrejaId())
+                    .assinaturaId(assinatura.getId().toString())
+                    .motivo("Assinatura suspensa no PagBank")
+                    .build();
+            rabbitTemplate.convertAndSend(exchange, sagaLicenseSuspensionRoutingKey, suspensionEvent);
+            log.info("Suspensão publicada após suspensão: igrejaId={}", licenca.getIgrejaId());
         });
         log.info("Subscription suspensa via webhook: {}", subscriptionId);
     }
