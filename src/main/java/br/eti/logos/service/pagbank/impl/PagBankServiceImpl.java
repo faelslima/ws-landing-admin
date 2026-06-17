@@ -101,9 +101,9 @@ public class PagBankServiceImpl implements PagBankService {
     }
 
     @Override
-    public void retentarFatura(String subscriptionId, String invoiceId) {
-        log.info("Retentando fatura no PagBank: subscriptionId={} invoiceId={}", subscriptionId, invoiceId);
-        subscriptionsFeign.retentarFatura(bearerToken(), subscriptionId, invoiceId);
+    public void retentarFatura(String subscriptionId) {
+        log.info("Retentando fatura no PagBank: subscriptionId={}", subscriptionId);
+        subscriptionsFeign.retentarFatura(bearerToken(), subscriptionId);
     }
 
     // ========================================================================

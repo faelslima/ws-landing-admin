@@ -141,11 +141,10 @@ public interface PagBankSubscriptionsFeign {
             @PathVariable("customerId") String customerId,
             @RequestBody java.util.List<UpdateBillingInfoRequestDto> billingInfo);
 
-    @PostMapping("/subscriptions/{subscriptionId}/invoices/{invoiceId}/retry")
+    @PutMapping("/subscriptions/{subscriptionId}/retry")
     ResponseEntity<Void> retentarFatura(
             @RequestHeader("Authorization") String token,
-            @PathVariable("subscriptionId") String subscriptionId,
-            @PathVariable("invoiceId") String invoiceId);
+            @PathVariable("subscriptionId") String subscriptionId);
 
     // Notification Preferences (Webhooks)
     @GetMapping("/preferences/notifications")

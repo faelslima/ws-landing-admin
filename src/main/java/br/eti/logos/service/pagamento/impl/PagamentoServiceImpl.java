@@ -118,7 +118,7 @@ public class PagamentoServiceImpl implements PagamentoService {
             throw new IllegalStateException("Assinatura sem subscription ID PagBank vinculada");
         }
 
-        pagBankService.retentarFatura(subscriptionId, pagamento.getPagbankInvoiceId());
+        pagBankService.retentarFatura(subscriptionId);
         log.info("Retentativa de cobrança solicitada: pagamentoId={} subscriptionId={}", pagamentoId, subscriptionId);
     }
 
