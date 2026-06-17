@@ -4,6 +4,7 @@ import br.eti.logos.core.util.DateTimeUtil;
 import br.eti.logos.core.util.MoneyUtil;
 import br.eti.logos.dto.request.RefundRequestDto;
 import br.eti.logos.dto.response.PagamentoResponseDto;
+import br.eti.logos.dto.saga.LicenseSuspensionEvent;
 import br.eti.logos.entity.landing.Pagamento;
 import br.eti.logos.enums.PagamentoStatusEnum;
 import br.eti.logos.repository.AssinaturaRepository;
@@ -14,6 +15,8 @@ import br.eti.logos.service.pagamento.PagamentoService;
 import br.eti.logos.service.pagbank.PagBankService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -32,6 +35,13 @@ public class PagamentoServiceImpl implements PagamentoService {
     private final IgrejaRepository igrejaRepository;
     private final LeadRepository leadRepository;
     private final PagBankService pagBankService;
+    private final RabbitTemplate rabbitTemplate;
+
+    @Value("${rabbitmq.landing.exchange}")
+    private String exchange;
+
+    @Value("${rabbitmq.landing.saga.license.suspension.routing.key}")
+    private String sagaLicenseSuspensionRoutingKey;
 
     @Override
     @Transactional(readOnly = true)
@@ -86,6 +96,22 @@ public class PagamentoServiceImpl implements PagamentoService {
         pagamentoRepository.save(pagamento);
 
         log.info("Pagamento estornado: {} - Valor: R$ {}", pagamento.getId(), estornoTotal);
+
+        // Se não restou nenhum PAID na assinatura, suspender usuarios no ws-security
+        var assinatura = pagamento.getAssinatura();
+        var temPagamentoAtivo = !pagamentoRepository
+                .findAllByAssinaturaIdAndStatus(assinatura.getId(), PagamentoStatusEnum.PAID)
+                .isEmpty();
+        if (!temPagamentoAtivo) {
+            var licenca = assinatura.getLicenca();
+            var suspensionEvent = LicenseSuspensionEvent.builder()
+                    .igrejaId(licenca.getIgrejaId())
+                    .assinaturaId(assinatura.getId().toString())
+                    .motivo("Estorno de pagamento — sem cobertura ativa")
+                    .build();
+            rabbitTemplate.convertAndSend(exchange, sagaLicenseSuspensionRoutingKey, suspensionEvent);
+            log.info("Suspensão publicada após estorno total: igrejaId={}", licenca.getIgrejaId());
+        }
     }
 
     @Override

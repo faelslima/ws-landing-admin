@@ -2,6 +2,7 @@ package br.eti.logos.service.pagbank.impl;
 
 import br.eti.logos.core.util.MoneyUtil;
 import br.eti.logos.dto.pagbank.InvoicesListDto;
+import br.eti.logos.dto.saga.LicenseReactivationEvent;
 import br.eti.logos.dto.saga.LicenseSuspensionEvent;
 import br.eti.logos.entity.landing.Pagamento;
 import org.springframework.cache.annotation.CacheEvict;
@@ -50,6 +51,9 @@ public class WebhookProcessorServiceImpl implements WebhookProcessorService {
 
     @Value("${rabbitmq.landing.saga.license.suspension.routing.key}")
     private String sagaLicenseSuspensionRoutingKey;
+
+    @Value("${rabbitmq.landing.saga.license.reactivation.routing.key}")
+    private String sagaLicenseReactivationRoutingKey;
 
     @Value("${app.landing.url:https://i12.logos.br}")
     private String landingUrl;
@@ -356,6 +360,23 @@ public class WebhookProcessorServiceImpl implements WebhookProcessorService {
         assinaturaRepository.save(assinatura);
 
         log.info("Invoice paga: {} - Valor: R$ {}", invoiceId, pagamento.getValor());
+
+        // Reativa usuarios no ws-security se a licença estava suspensa ou cancelada
+        var licenca = assinatura.getLicenca();
+        if (licenca.getStatus() == LicencaStatusEnum.SUSPENSA || licenca.getStatus() == LicencaStatusEnum.CANCELADA) {
+            licenca.setStatus(LicencaStatusEnum.ATIVA);
+            licenca.setDataSuspensao(null);
+            licencaRepository.save(licenca);
+
+            var reactivationEvent = LicenseReactivationEvent.builder()
+                    .igrejaId(licenca.getIgrejaId())
+                    .licencaId(licenca.getId().toString())
+                    .limiteUsuarios(licenca.getPlano() != null ? licenca.getPlano().getLimiteUsuarios() : null)
+                    .planoNome(licenca.getPlano() != null ? licenca.getPlano().getNome() : null)
+                    .build();
+            rabbitTemplate.convertAndSend(exchange, sagaLicenseReactivationRoutingKey, reactivationEvent);
+            log.info("Reativação publicada após pagamento: igrejaId={}", licenca.getIgrejaId());
+        }
     }
 
     private void processarInvoiceOverdue(JsonNode json) {
