@@ -142,12 +142,16 @@ public class WebhookProcessorServiceImpl implements WebhookProcessorService {
                 log.info("Webhook SUBSCRIPTION_INITIAL/ACTIVE para {} chegou antes do checkout salvar — onboarding já será disparado pelo checkout", subscriptionId);
                 return;
             }
-            // Só dispara onboarding via webhook se o checkout ainda não ativou (status ainda PENDING)
-            if (assinatura.getStatus() == AssinaturaStatusEnum.PENDING || assinatura.getStatus() == AssinaturaStatusEnum.TRIAL) {
-                log.info("Subscription ativada via webhook, iniciando onboarding: {}", subscriptionId);
+            // Dispara onboarding se o checkout ainda não ativou (PENDING/TRIAL) ou se
+            // um webhook anterior de falha já marcou como OVERDUE antes de o pagamento ser confirmado
+            var statusAtual = assinatura.getStatus();
+            if (statusAtual == AssinaturaStatusEnum.PENDING
+                    || statusAtual == AssinaturaStatusEnum.TRIAL
+                    || statusAtual == AssinaturaStatusEnum.OVERDUE) {
+                log.info("Subscription ativada via webhook (status anterior={}), iniciando onboarding: {}", statusAtual, subscriptionId);
                 onboardingService.processarPagamentoConfirmado(subscriptionId);
             } else {
-                log.info("Subscription {} já está com status={}, onboarding já foi disparado", subscriptionId, assinatura.getStatus());
+                log.info("Subscription {} já está com status={}, onboarding já foi disparado", subscriptionId, statusAtual);
             }
             return;
         }
