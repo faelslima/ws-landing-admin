@@ -112,6 +112,7 @@ public class PlanoServiceImpl implements PlanoService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "planos", allEntries = true)
     public void sincronizarComPagBank(UUID planoId) {
         var plano = planoRepository.findById(planoId)
                 .orElseThrow(() -> new IllegalArgumentException("Plano não encontrado"));
@@ -141,7 +142,8 @@ public class PlanoServiceImpl implements PlanoService {
             plano.setPagbankPlanId(response.getId());
             log.info("Plano {} sincronizado. PagBank ID: {}", plano.getNome(), response.getId());
         } catch (Exception ex) {
-            var string = "";
+            log.error("Erro ao sincronizar plano {} com PagBank: {}", plano.getNome(), ex.getMessage(), ex);
+            throw ex;
         }
         planoRepository.save(plano);
 

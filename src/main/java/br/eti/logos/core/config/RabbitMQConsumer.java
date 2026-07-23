@@ -77,7 +77,9 @@ public class RabbitMQConsumer {
 
         if (retries < MAX_RETRIES) {
             message.getMessageProperties().setHeader("x-retries", retries + 1);
-            rabbitTemplate.convertAndSend(exchange, routingKey, message);
+            // message já é um Message pronto — convertAndSend() o serializaria novamente via
+            // Jackson2JsonMessageConverter, corrompendo o corpo. send() encaminha os bytes crus.
+            rabbitTemplate.send(exchange, routingKey, message);
             channel.basicAck(message.getMessageProperties().getDeliveryTag(), false);
             log.warn("Retry {}/{} para mensagem (routing key: {})", retries + 1, MAX_RETRIES, routingKey);
         } else {

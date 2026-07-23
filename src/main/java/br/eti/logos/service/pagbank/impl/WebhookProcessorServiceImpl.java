@@ -81,7 +81,13 @@ public class WebhookProcessorServiceImpl implements WebhookProcessorService {
                     .build();
             webhookEventRepository.save(event);
 
-            rabbitTemplate.convertAndSend(exchange, webhookRoutingKey, payload);
+            // rabbitTemplate usa Jackson2JsonMessageConverter — convertAndSend(String) serializaria
+            // o payload (que já é JSON) como uma string JSON escapada. Envia os bytes crus via send().
+            var message = org.springframework.amqp.core.MessageBuilder
+                    .withBody(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                    .setContentType(org.springframework.amqp.core.MessageProperties.CONTENT_TYPE_JSON)
+                    .build();
+            rabbitTemplate.send(exchange, webhookRoutingKey, message);
             log.info("Webhook recebido e enfileirado: tipo={}", event.getTipo());
         } catch (Exception e) {
             log.info("Webhook duplicado ignorado (race condition): {}", payloadHash.substring(0, 12));

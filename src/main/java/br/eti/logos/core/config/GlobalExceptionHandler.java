@@ -81,6 +81,7 @@ public class GlobalExceptionHandler {
         try {
             // Tentar extrair mensagem amigável do response do PagBank
             String body = e.contentUTF8();
+            log.warn("Corpo do erro PagBank: {}", body);
             if (body != null && !body.isEmpty()) {
                 JsonNode json = objectMapper.readTree(body);
 

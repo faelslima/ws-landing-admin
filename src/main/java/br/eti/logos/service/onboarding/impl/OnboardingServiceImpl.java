@@ -293,8 +293,10 @@ public class OnboardingServiceImpl implements OnboardingService {
     }
 
     private PagBankCustomerDto resolverCustomer(CheckoutRequestDto request, String telefoneDigits) {
+        var cpfLimpo = request.getCpfResponsavel().replaceAll("\\D", "");
+        var cardHolderTaxIdLimpo = request.getCardHolderTaxId().replaceAll("\\D", "");
+
         try {
-            var cpfLimpo = request.getCpfResponsavel().replaceAll("\\D", "");
             var resultado = pagBankService.listarClientes(cpfLimpo, 0, 1);
             if (resultado != null
                     && resultado.getCustomers() != null
@@ -310,7 +312,7 @@ public class OnboardingServiceImpl implements OnboardingService {
                                         .encrypted(request.getEncryptedCard())
                                         .holder(PagBankCardDto.PagBankCardHolderDto.builder()
                                                 .name(request.getCardHolderName())
-                                                .taxId(request.getCardHolderTaxId())
+                                                .taxId(cardHolderTaxIdLimpo)
                                                 .build())
                                         .build())
                                 .build()))
@@ -325,7 +327,7 @@ public class OnboardingServiceImpl implements OnboardingService {
         return PagBankCustomerDto.builder()
                 .name(request.getNomeResponsavel())
                 .email(request.getEmail())
-                .taxId(request.getCpfResponsavel())
+                .taxId(cpfLimpo)
                 .phones(List.of(PagBankCustomerDto.PagBankPhoneDto.builder()
                         .country("55")
                         .area(telefoneDigits.substring(0, 2))
@@ -337,7 +339,7 @@ public class OnboardingServiceImpl implements OnboardingService {
                                 .encrypted(request.getEncryptedCard())
                                 .holder(PagBankCardDto.PagBankCardHolderDto.builder()
                                         .name(request.getCardHolderName())
-                                        .taxId(request.getCardHolderTaxId())
+                                        .taxId(cardHolderTaxIdLimpo)
                                         .build())
                                 .build())
                         .build()))
