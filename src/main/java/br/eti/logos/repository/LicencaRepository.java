@@ -25,6 +25,8 @@ public interface LicencaRepository extends JpaRepository<Licenca, UUID> {
     @Query("SELECT COUNT(l) FROM Licenca l WHERE l.status = :status")
     Long countByStatus(@Param("status") LicencaStatusEnum status);
 
-    @Query("SELECT l FROM Licenca l WHERE l.status = 'ATIVA' AND l.dataExpiracao < CURRENT_TIMESTAMP")
+    // Inclui TRIAL: trials vencidos também devem ser expirados/inativados pelo scheduler.
+    // dataExpiracao null (prazo indeterminado) nunca é retornada — comparação com null é unknown.
+    @Query("SELECT l FROM Licenca l WHERE l.status IN ('ATIVA', 'TRIAL') AND l.dataExpiracao < CURRENT_TIMESTAMP")
     List<Licenca> findExpiradas();
 }

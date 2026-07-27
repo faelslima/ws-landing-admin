@@ -1,8 +1,10 @@
 package br.eti.logos.controller.admin;
 
+import br.eti.logos.dto.request.LicencaManualRequestDto;
 import br.eti.logos.dto.response.LicencaResponseDto;
 import br.eti.logos.enums.LicencaStatusEnum;
 import br.eti.logos.service.licenca.LicencaService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -31,6 +33,13 @@ public class AdminLicencaApi {
 
     public ResponseEntity<LicencaResponseDto> buscarPorIgreja(@PathVariable String igrejaId) {
         return ResponseEntity.ok(licencaService.buscarPorIgreja(igrejaId));
+    }
+
+    @PostMapping("/igreja/{igrejaId}/manual")
+    public ResponseEntity<LicencaResponseDto> criarOuAtualizarManual(
+            @PathVariable String igrejaId,
+            @Valid @RequestBody LicencaManualRequestDto request) {
+        return ResponseEntity.ok(licencaService.criarOuAtualizarLicencaManual(igrejaId, request));
     }
 
     @PutMapping("/{id}/suspender")
