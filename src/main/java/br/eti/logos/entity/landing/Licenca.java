@@ -40,7 +40,10 @@ public class Licenca  implements Serializable {
     @Column(nullable = false)
     private OffsetDateTime dataInicio;
 
-    @Column(nullable = false)
+    /**
+     * Data de expiração da licença. {@code null} indica licença por prazo
+     * indeterminado (nunca expira) — usada em liberações manuais pelo admin.
+     */
     private OffsetDateTime dataExpiracao;
 
     private OffsetDateTime dataSuspensao;
